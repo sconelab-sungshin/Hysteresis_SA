@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Chen-style Hysteresis Demo - Condition Matrix</title>
+
+    <!-- jsPsych 본체 -->
+    <script src="https://unpkg.com/jspsych@8.2.3"></script>
+
+    <!-- 필요한 plugin들 -->
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+
+    <!-- jsPsych 기본 CSS -->
+    <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(166, 166, 166);
+      }
+
+      .jspsych-display-element {
+        background-color: rgb(166, 166, 166);
+      }
+
+      #jspsych-content {
+        max-width: none;
+      }
+
+      .instruction-screen {
+        width: 100vw;
+        height: 100vh;
+        background-color: rgb(166, 166, 166);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: black;
+        font-family: Arial, sans-serif;
+      }
+
+      .instruction-box {
+        max-width: 720px;
+        line-height: 1.7;
+        font-size: 20px;
+      }
+
+      .task-screen {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgb(166, 166, 166);
+        overflow: hidden;
+      }
+
+      /* 자극 이미지 또는 fixation panel이 정확히 화면 중앙에 오도록 고정 */
+      .stim-box {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 301px;
+        height: 225px;
+        transform: translate(-50%, -50%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .stim-img {
+        width: 301px;
+        height: 225px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .fixation-panel {
+        width: 301px;
+        height: 225px;
+        background-color: rgb(166, 166, 166);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .fixation-cross {
+        font-size: 28px;
+        color: white;
+        font-weight: normal;
+        line-height: 1;
+      }
+
+      /* 체크 표시는 이미지 위치를 밀지 않도록 별도 absolute 위치에 표시 */
+      .check-feedback {
+        position: absolute;
+        left: 50%;
+        top: calc(50% + 112.5px + 12px);
+        transform: translateX(-50%);
+        height: 32px;
+        font-size: 30px;
+        font-weight: bold;
+        color: #2b6cb0;
+        line-height: 32px;
+      }
+    </style>
+  </head>
+
+  <body></body>
+
+  <script>
+    // =========================================================
+    // 1. jsPsych 초기화
+    // =========================================================
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData();
+
+        // 데이터를 csv로 저장하고 싶으면 아래 줄의 주석을 해제하면 됨
+        // jsPsych.data.get().localSave('csv', 'chen_condition_demo_data.csv');
+      }
+    });
+
+
+    // =========================================================
+    // 2. Condition Matrix 만들기
+    // =========================================================
+
+    function make_frame_files(stim_path, direction_code) {
+      const frames = [];
+
+      if (direction_code === 1) {
+        // happy_to_angry: frame_001 → frame_041
+        for (let i = 1; i <= 41; i++) {
+          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.png`);
+        }
+      } else {
+        // angry_to_happy: frame_041 → frame_001
+        for (let i = 41; i >= 1; i--) {
+          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.png`);
+        }
+      }
+
+      return frames;
+    }
+
+
+    const conditionMatrix = [
+      // -------------------------
+      // repeat 1
+      // -------------------------
+      {
+        trial_id: 1,
+        set_id: 1,
+        model_code: 'AW',
+        stim_path: '../../2. stimuli/images/set01/',
+        direction_code: 1,
+        direction_label: 'happy_to_angry',
+        repeat: 1,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      },
+      {
+        trial_id: 2,
+        set_id: 1,
+        model_code: 'AW',
+        stim_path: '../../2. stimuli/images/set01/',
+        direction_code: 0,
+        direction_label: 'angry_to_happy',
+        repeat: 1,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      },
+      {
+        trial_id: 3,
+        set_id: 2,
+        model_code: 'AM',
+        stim_path: '../../2. stimuli/images/set02/',
+        direction_code: 1,
+        direction_label: 'happy_to_angry',
+        repeat: 1,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      },
+
+      // -------------------------
+      // repeat 2
+      // -------------------------
+      {
+        trial_id: 4,
+        set_id: 1,
+        model_code: 'AW',
+        stim_path: '../../2. stimuli/images/set01/',
+        direction_code: 1,
+        direction_label: 'happy_to_angry',
+        repeat: 2,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      },
+      {
+        trial_id: 5,
+        set_id: 1,
+        model_code: 'AW',
+        stim_path: '../../2. stimuli/images/set01/',
+        direction_code: 0,
+        direction_label: 'angry_to_happy',
+        repeat: 2,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      },
+      {
+        trial_id: 6,
+        set_id: 2,
+        model_code: 'AM',
+        stim_path: '../../2. stimuli/images/set02/',
+        direction_code: 1,
+        direction_label: 'happy_to_angry',
+        repeat: 2,
+        n_frames: 41,
+        frame_duration_ms: 200,
+        fixation_duration_ms: 300,
+        response_key: 'space'
+      }
+    ];
+
+
+    conditionMatrix.forEach(condition => {
+      condition.frame_files = make_frame_files(
+        condition.stim_path,
+        condition.direction_code
+      );
+    });
+
+
+    // =========================================================
+    // 3. Preload 이미지 목록 만들기
+    // =========================================================
+    const preload_images = [
+      ...new Set(conditionMatrix.flatMap(condition => condition.frame_files))
+    ];
+
+    const preload = {
+      type: jsPsychPreload,
+      images: preload_images
+    };
+
+
+    // =========================================================
+    // 4. 커스텀 플러그인: 반응해도 시퀀스 끝까지 진행
+    // =========================================================
+    class ChenTransitionPlugin {
+      static info = {
+        name: 'chen-transition',
+        parameters: {}
+      };
+
+      constructor(jsPsych) {
+        this.jsPsych = jsPsych;
+      }
+
+      trial(display_element, trial) {
+        const frames = trial.frames;
+        const frame_duration = trial.frame_duration ?? 200;
+        const isi_duration = trial.isi_duration ?? 300;
+        const response_key = trial.response_key ?? ' ';
+        const trial_type = trial.trial_type ?? 'smooth';
+        const condition_name = trial.condition_name ?? '';
+        const transition_frame = trial.transition_frame ?? null;
+
+        // 체크 표시가 보이는 시간
+        const CHECK_DURATION_MS = 250;
+
+        let stepIndex = 0;
+        let responded = false;
+        let response_frame = null;
+        let response_rt = null;
+        let trialStartTime = performance.now();
+
+        let keyboardListener = null;
+        let timeoutId = null;
+        let checkTimeoutId = null;
+
+        // 현재 화면 상태: 'frame' 또는 'fixation'
+        let currentDisplayMode = 'frame';
+        let currentSrc = null;
+        let showCheck = false;
+
+        function checkHtml() {
+          return showCheck ? `<div class="check-feedback">✓</div>` : `<div class="check-feedback"></div>`;
+        }
+
+        function renderFrame(src) {
+          currentDisplayMode = 'frame';
+          currentSrc = src;
+
+          display_element.innerHTML = `
+            <div class="task-screen">
+              <div class="stim-box">
+                <img src="${src}" class="stim-img">
+              </div>
+              ${checkHtml()}
+            </div>
+          `;
+        }
+
+        function renderFixation() {
+          currentDisplayMode = 'fixation';
+          currentSrc = null;
+
+          display_element.innerHTML = `
+            <div class="task-screen">
+              <div class="stim-box">
+                <div class="fixation-panel">
+                  <div class="fixation-cross">+</div>
+                </div>
+              </div>
+              ${checkHtml()}
+            </div>
+          `;
+        }
+
+        function rerenderCurrentScreen() {
+          if (currentDisplayMode === 'frame' && currentSrc !== null) {
+            renderFrame(currentSrc);
+          } else {
+            renderFixation();
+          }
+        }
+
+        function flashCheck() {
+          showCheck = true;
+          rerenderCurrentScreen();
+
+          if (checkTimeoutId) {
+            clearTimeout(checkTimeoutId);
+          }
+
+          checkTimeoutId = setTimeout(() => {
+            showCheck = false;
+            rerenderCurrentScreen();
+          }, CHECK_DURATION_MS);
+        }
+
+        const endTrial = () => {
+          if (keyboardListener) {
+            this.jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
+          }
+
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+
+          if (checkTimeoutId) {
+            clearTimeout(checkTimeoutId);
+          }
+
+          display_element.innerHTML = '';
+
+          this.jsPsych.finishTrial({
+            ...trial.data,
+
+            task: 'chen_style_transition_detection',
+            trial_type: trial_type,
+            condition: condition_name,
+            transition_frame: transition_frame,
+
+            response_frame: response_frame,
+            rt: response_rt,
+            responded: responded,
+            total_frames_shown: frames.length
+          });
+        };
+
+        keyboardListener = this.jsPsych.pluginAPI.getKeyboardResponse({
+          callback_function: () => {
+            if (responded) return;
+
+            responded = true;
+
+            // stepIndex는 0부터 시작하므로 1-indexed frame 번호로 저장
+            response_frame = stepIndex + 1;
+
+            // 시퀀스 시작부터 첫 반응까지의 시간
+            response_rt = performance.now() - trialStartTime;
+
+            // 파란 체크 표시를 순간적으로 보여주기
+            flashCheck();
+          },
+          valid_responses: [response_key],
+          rt_method: 'performance',
+          persist: true,
+          allow_held_key: false
+        });
+
+        const runStep = () => {
+          if (stepIndex >= frames.length) {
+            endTrial();
+            return;
+          }
+
+          renderFrame(frames[stepIndex]);
+
+          timeoutId = setTimeout(() => {
+            renderFixation();
+
+            timeoutId = setTimeout(() => {
+              stepIndex++;
+              runStep();
+            }, isi_duration);
+
+          }, frame_duration);
+        };
+
+        runStep();
+      }
+    }
+
+
+    // =========================================================
+    // 5. 안내문
+    // =========================================================
+    const instruction = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="instruction-screen">
+          <div class="instruction-box">
+            <h2>표정 변화 탐지 과제</h2>
+            <p>얼굴 표정 이미지가 연속적으로 제시됩니다.</p>
+            <p>표정이 바뀌었다고 느끼는 순간 <strong>스페이스바</strong>를 누르세요.</p>
+            <p>응답이 기록되면 이미지 아래에 <strong style="color:#2b6cb0;">파란색 체크 표시</strong>가 잠깐 나타납니다.</p>
+            <p>체크 표시가 나타난 이후에는 다시 누르지 않아도 됩니다.</p>
+            <br>
+            <p>아무 키나 누르면 시작합니다.</p>
+          </div>
+        </div>
+      `
+    };
+
+
+    // =========================================================
+    // 6. Trial 시작 안내문
+    // =========================================================
+    function make_trial_message(condition, index, total) {
+      return {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `
+          <div class="instruction-screen">
+            <div class="instruction-box">
+              <h3>Trial ${index + 1} / ${total}</h3>
+              <p>아무 키나 누르면 시작합니다.</p>
+            </div>
+          </div>
+        `
+      };
+    }
+
+
+    // =========================================================
+    // 7. Condition row를 jsPsych trial로 변환
+    // =========================================================
+    function make_condition_trial(condition) {
+      return {
+        type: ChenTransitionPlugin,
+
+        frames: condition.frame_files,
+
+        frame_duration: condition.frame_duration_ms,
+        isi_duration: condition.fixation_duration_ms,
+        response_key: ' ',
+        trial_type: 'smooth',
+        condition_name: condition.direction_label,
+
+        data: {
+          phase: 'demo',
+
+          trial_id: condition.trial_id,
+          set_id: condition.set_id,
+          model_code: condition.model_code,
+          stim_path: condition.stim_path,
+
+          direction_code: condition.direction_code,
+          direction_label: condition.direction_label,
+          repeat: condition.repeat,
+
+          n_frames: condition.n_frames
+        }
+      };
+    }
+
+
+    // =========================================================
+    // 8. Demo trials 만들기
+    // =========================================================
+    const demo_trials = [];
+
+    conditionMatrix.forEach((condition, index) => {
+      demo_trials.push(
+        make_trial_message(condition, index, conditionMatrix.length)
+      );
+
+      demo_trials.push(
+        make_condition_trial(condition)
+      );
+    });
+
+
+    // =========================================================
+    // 9. 전체 timeline
+    // =========================================================
+    const timeline = [
+      preload,
+      instruction,
+      ...demo_trials
+    ];
+
+
+    // =========================================================
+    // 10. 실험 실행
+    // =========================================================
+    jsPsych.run(timeline);
+  </script>
+</html>
