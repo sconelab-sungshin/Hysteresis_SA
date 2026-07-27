@@ -1,0 +1,299 @@
+{
+  "project": "Hysteresis_SA",
+  "stimulus_type": "scene_transition",
+  "stimulus_set": "living_room_bedroom",
+  "notes": {
+    "description": "JSON prompts used to generate scene transition stimuli.",
+    "version_info": "This file contains separate prompt specifications for living room and bedroom scene versions."
+  },
+  "prompts": {
+    "living_room_version": {
+      "comment": "Living room scene generation prompt. This version is used to generate the living room endpoint or living-room-dominant transition images.",
+      "scene_category": "living_room",
+      "task": "Generate a living room scene image while preserving the same camera angle, room layout, lighting, wall color, floor color, and overall visual style.",
+      "goal": "Create a natural living room version of the reference indoor scene. The image should clearly be perceived as a living room while maintaining all category-irrelevant visual features as consistently as possible."
+    },
+    "bedroom_version": {
+      "comment": "Bedroom scene generation prompt. This version is used to generate the bedroom endpoint or bedroom-dominant transition images.",
+      "scene_category": "bedroom",
+      "task": "Generate a bedroom scene image while preserving the same camera angle, room layout, lighting, wall color, floor color, and overall visual style.",
+      "goal": "Create a natural bedroom version of the reference indoor scene. The image should clearly be perceived as a bedroom while maintaining all category-irrelevant visual features as consistently as possible."
+    }
+  }
+}
+
+{
+  "task": "Generate 20 separate scene images showing a gradual transition from a bedroom reference image to a living room reference image.",
+
+  "reference_images": {
+    "Image_B": "Bedroom endpoint reference image. This is the exact starting state: 100% bedroom and 0% living room.",
+    "Image_L": "Living room endpoint reference image. This is the exact destination state: 100% living room and 0% bedroom."
+  },
+
+  "endpoint_definition": {
+    "start_state": "Image_B",
+    "start_percentage": "0% living room / 100% bedroom",
+    "destination_state": "Image_L",
+    "destination_percentage": "100% living room / 0% bedroom"
+  },
+
+  "goal": "Using both endpoint reference images, generate 20 new images that form a smooth and perceptually even transition from Image_B to Image_L in 5% living-room increments. The sequence must begin immediately after the bedroom endpoint and end at the living-room endpoint.",
+
+  "total_output_images": 20,
+
+  "transition_levels": [
+    5, 10, 15, 20, 25,
+    30, 35, 40, 45, 50,
+    55, 60, 65, 70, 75,
+    80, 85, 90, 95, 100
+  ],
+
+  "output_files": [
+    "bedroom_to_livingroom_005",
+    "bedroom_to_livingroom_010",
+    "bedroom_to_livingroom_015",
+    "bedroom_to_livingroom_020",
+    "bedroom_to_livingroom_025",
+    "bedroom_to_livingroom_030",
+    "bedroom_to_livingroom_035",
+    "bedroom_to_livingroom_040",
+    "bedroom_to_livingroom_045",
+    "bedroom_to_livingroom_050",
+    "bedroom_to_livingroom_055",
+    "bedroom_to_livingroom_060",
+    "bedroom_to_livingroom_065",
+    "bedroom_to_livingroom_070",
+    "bedroom_to_livingroom_075",
+    "bedroom_to_livingroom_080",
+    "bedroom_to_livingroom_085",
+    "bedroom_to_livingroom_090",
+    "bedroom_to_livingroom_095",
+    "bedroom_to_livingroom_100"
+  ],
+
+  "core_instruction": "Treat Image_B and Image_L as fixed semantic and visual endpoints. Create a smooth monotonic interpolation from Image_B toward Image_L. bedroom_to_livingroom_005 must remain almost identical to Image_B, with only the faintest living-room characteristics. Each subsequent image must be slightly closer to Image_L than the previous image. bedroom_to_livingroom_100 must reach and reproduce the living-room endpoint represented by Image_L.",
+
+  "endpoint_anchor_requirements": [
+    "Image_B is the absolute starting anchor and must define the appearance of the lowest transition levels.",
+    "Image_L is the absolute destination anchor and must define the appearance of the highest transition levels.",
+    "bedroom_to_livingroom_005 must be visually much closer to Image_B than to Image_L.",
+    "bedroom_to_livingroom_050 must be approximately halfway between the two endpoint images in scene-category evidence.",
+    "bedroom_to_livingroom_095 must be almost identical to Image_L, with only a very faint residual bedroom characteristic.",
+    "bedroom_to_livingroom_100 must match Image_L as closely as possible.",
+    "Do not create an independently invented living room at 100%. Use Image_L as the exact destination.",
+    "Do not drift away from either endpoint or introduce a third interior design."
+  ],
+
+  "interpolation_rule": [
+    "For a transition level of P%, use approximately P% of the living-room-defining visual characteristics of Image_L and approximately 100-P% of the bedroom-defining visual characteristics of Image_B.",
+    "The interpolation must be monotonic: living-room evidence must never decrease as the sequence progresses.",
+    "The perceptual distance between neighboring images should be approximately equal.",
+    "Every frame must be closer to the destination image than the preceding frame.",
+    "Transform corresponding objects gradually rather than replacing the entire scene."
+  ],
+
+  "transition_guidelines": [
+    "Gradually transform the bed and sleeping structure toward the sofa or seating structure shown in Image_L.",
+    "Gradually alter furniture geometry, surface shape, and function from sleeping furniture to communal seating.",
+    "Gradually reduce and transform the mattress, sheets, sleeping pillows, blankets, bedspread, and headboard characteristics.",
+    "Gradually introduce the seating cushions, sofa structure, coffee table, and living-room furniture visible in Image_L.",
+    "Gradually transform bedside tables into the side furniture shown in Image_L.",
+    "Gradually establish the conversation-oriented furniture arrangement represented by Image_L.",
+    "Gradually adopt the living-room-specific object arrangement, decoration, and functional organization of Image_L.",
+    "Use object correspondences between the two references whenever possible.",
+    "Objects must transform, move, merge, appear, or disappear in very small continuous steps.",
+    "Do not add living-room objects that are absent from Image_L.",
+    "Do not preserve bedroom objects at high levels when they are absent from Image_L."
+  ],
+
+  "midpoint_requirements": [
+    "The 45%, 50%, and 55% images must be genuinely ambiguous between a bedroom and a living room.",
+    "The midpoint must not appear as two independent rooms or two separate functional zones.",
+    "The midpoint must look like one coherent room whose category is difficult to classify.",
+    "At 50%, bedroom and living-room evidence should be approximately balanced."
+  ],
+
+  "spatial_alignment_requirements": [
+    "Preserve the shared architectural structure represented by the two endpoint images.",
+    "Maintain a continuous correspondence between walls, windows, doors, ceiling, floor, and permanent architectural elements.",
+    "Maintain the same camera position, framing, crop, perspective, focal length, and vanishing points.",
+    "Maintain consistent room proportions and spatial depth.",
+    "Maintain consistent lighting direction, brightness, shadows, color tone, and image sharpness.",
+    "Where endpoint details differ, transition gradually from the exact Image_B configuration toward the exact Image_L configuration.",
+    "Do not change the room identity or create a different location during the sequence."
+  ],
+
+  "continuity_requirements": [
+    "Each image must look like a natural continuation of the previous and following image.",
+    "Adjacent images must differ only slightly.",
+    "There must be no abrupt transformation of furniture, layout, lighting, or architecture.",
+    "The sequence must not complete the living-room transition before the final levels.",
+    "The sequence must not remain too similar to the bedroom until the final few levels.",
+    "Furniture boundaries and object geometry must remain physically plausible throughout.",
+    "The transition rate must remain perceptually even from 5% through 100%."
+  ],
+
+  "output_format": {
+    "separate_files": true,
+    "collage": false,
+    "contact_sheet": false,
+    "instruction": "Generate 20 separate full-resolution image files, one for each transition level. Do not combine multiple transition levels into a single image. The original Image_B does not need to be regenerated. The 100% output must reproduce Image_L."
+  },
+
+  "negative_constraints": [
+    "No collage.",
+    "No contact sheet.",
+    "No split-screen composition.",
+    "No text labels or percentages inside the images.",
+    "No independently invented endpoint.",
+    "No new room or unrelated interior.",
+    "No change in camera viewpoint.",
+    "No abrupt architectural change.",
+    "No sudden appearance or disappearance of major furniture.",
+    "No abrupt jump from bed to sofa.",
+    "No intact unrelated bed and full sofa simultaneously at high levels.",
+    "No separate bedroom and living-room zones.",
+    "No floating, duplicated, distorted, or physically impossible furniture.",
+    "No transition into a dining room, kitchen, office, hotel lobby, or other scene category.",
+    "No changes unrelated to interpolation between Image_B and Image_L."
+  ]
+}
+
+
+
+{
+  "task": "Generate 20 separate scene images showing a gradual transition from a living room reference image to a bedroom reference image.",
+
+  "reference_images": {
+    "Image_L": "Living room endpoint reference image. This is the exact starting state: 100% living room and 0% bedroom.",
+    "Image_B": "Bedroom endpoint reference image. This is the exact destination state: 100% bedroom and 0% living room."
+  },
+
+  "endpoint_definition": {
+    "start_state": "Image_L",
+    "start_percentage": "0% bedroom / 100% living room",
+    "destination_state": "Image_B",
+    "destination_percentage": "100% bedroom / 0% living room"
+  },
+
+  "goal": "Using both endpoint reference images, generate 20 new images that form a smooth and perceptually even transition from Image_L to Image_B in 5% bedroom increments. The sequence must begin immediately after the living room endpoint and end at the bedroom endpoint.",
+
+  "total_output_images": 20,
+
+  "transition_levels": [
+    5, 10, 15, 20, 25,
+    30, 35, 40, 45, 50,
+    55, 60, 65, 70, 75,
+    80, 85, 90, 95, 100
+  ],
+
+  "output_files": [
+    "livingroom_to_bedroom_005",
+    "livingroom_to_bedroom_010",
+    "livingroom_to_bedroom_015",
+    "livingroom_to_bedroom_020",
+    "livingroom_to_bedroom_025",
+    "livingroom_to_bedroom_030",
+    "livingroom_to_bedroom_035",
+    "livingroom_to_bedroom_040",
+    "livingroom_to_bedroom_045",
+    "livingroom_to_bedroom_050",
+    "livingroom_to_bedroom_055",
+    "livingroom_to_bedroom_060",
+    "livingroom_to_bedroom_065",
+    "livingroom_to_bedroom_070",
+    "livingroom_to_bedroom_075",
+    "livingroom_to_bedroom_080",
+    "livingroom_to_bedroom_085",
+    "livingroom_to_bedroom_090",
+    "livingroom_to_bedroom_095",
+    "livingroom_to_bedroom_100"
+  ],
+
+  "core_instruction": "Treat Image_L and Image_B as fixed semantic and visual endpoints. Create a smooth monotonic interpolation from Image_L toward Image_B. livingroom_to_bedroom_005 must remain almost identical to Image_L, with only the faintest bedroom characteristics. Each subsequent image must be slightly closer to Image_B than the previous image. livingroom_to_bedroom_100 must reach and reproduce the bedroom endpoint represented by Image_B.",
+
+  "endpoint_anchor_requirements": [
+    "Image_L is the absolute starting anchor and must define the appearance of the lowest transition levels.",
+    "Image_B is the absolute destination anchor and must define the appearance of the highest transition levels.",
+    "livingroom_to_bedroom_005 must be visually much closer to Image_L than to Image_B.",
+    "livingroom_to_bedroom_050 must be approximately halfway between the two endpoint images in scene-category evidence.",
+    "livingroom_to_bedroom_095 must be almost identical to Image_B, with only a very faint residual living-room characteristic.",
+    "livingroom_to_bedroom_100 must match Image_B as closely as possible.",
+    "Do not create an independently invented bedroom at 100%. Use Image_B as the exact destination.",
+    "Do not drift away from either endpoint or introduce a third interior design."
+  ],
+
+  "interpolation_rule": [
+    "For a transition level of P%, use approximately P% of the bedroom-defining visual characteristics of Image_B and approximately 100-P% of the living-room-defining visual characteristics of Image_L.",
+    "The interpolation must be monotonic: bedroom evidence must never decrease as the sequence progresses.",
+    "The perceptual distance between neighboring images should be approximately equal.",
+    "Every frame must be closer to the destination image than the preceding frame.",
+    "Transform corresponding objects gradually rather than replacing the entire scene."
+  ],
+
+  "transition_guidelines": [
+    "Gradually transform the main sofa or seating structure toward the bed shown in Image_B.",
+    "Gradually alter the furniture geometry, surface shape, and function from communal seating to sleeping furniture.",
+    "Gradually introduce the mattress, bedding, sheets, sleeping pillows, blankets, and headboard characteristics visible in Image_B.",
+    "Gradually transform or remove coffee-table characteristics according to the bedroom endpoint.",
+    "Gradually transform living-room side furniture into the bedside furniture shown in Image_B.",
+    "Gradually reduce conversation-oriented furniture arrangements.",
+    "Gradually adopt the bedroom-specific object arrangement, decoration, and functional organization of Image_B.",
+    "Use object correspondences between the two references whenever possible.",
+    "Objects must transform, move, merge, appear, or disappear in very small continuous steps.",
+    "Do not add bedroom objects that are absent from Image_B.",
+    "Do not preserve living-room objects at high levels when they are absent from Image_B."
+  ],
+
+  "midpoint_requirements": [
+    "The 45%, 50%, and 55% images must be genuinely ambiguous between a living room and a bedroom.",
+    "The midpoint must not appear as two independent rooms or two separate functional zones.",
+    "The midpoint must look like one coherent room whose category is difficult to classify.",
+    "At 50%, living-room and bedroom evidence should be approximately balanced."
+  ],
+
+  "spatial_alignment_requirements": [
+    "Preserve the shared architectural structure represented by the two endpoint images.",
+    "Maintain a continuous correspondence between walls, windows, doors, ceiling, floor, and permanent architectural elements.",
+    "Maintain the same camera position, framing, crop, perspective, focal length, and vanishing points.",
+    "Maintain consistent room proportions and spatial depth.",
+    "Maintain consistent lighting direction, brightness, shadows, color tone, and image sharpness.",
+    "Where endpoint details differ, transition gradually from the exact Image_L configuration toward the exact Image_B configuration.",
+    "Do not change the room identity or create a different location during the sequence."
+  ],
+
+  "continuity_requirements": [
+    "Each image must look like a natural continuation of the previous and following image.",
+    "Adjacent images must differ only slightly.",
+    "There must be no abrupt transformation of furniture, layout, lighting, or architecture.",
+    "The sequence must not complete the bedroom transition before the final levels.",
+    "The sequence must not remain too similar to the living room until the final few levels.",
+    "Furniture boundaries and object geometry must remain physically plausible throughout.",
+    "The transition rate must remain perceptually even from 5% through 100%."
+  ],
+
+  "output_format": {
+    "separate_files": true,
+    "collage": false,
+    "contact_sheet": false,
+    "instruction": "Generate 20 separate full-resolution image files, one for each transition level. Do not combine multiple transition levels into a single image. The original Image_L does not need to be regenerated. The 100% output must reproduce Image_B."
+  },
+
+  "negative_constraints": [
+    "No collage.",
+    "No contact sheet.",
+    "No split-screen composition.",
+    "No text labels or percentages inside the images.",
+    "No independently invented endpoint.",
+    "No new room or unrelated interior.",
+    "No change in camera viewpoint.",
+    "No abrupt architectural change.",
+    "No sudden appearance or disappearance of major furniture.",
+    "No abrupt jump from sofa to bed.",
+    "No intact unrelated sofa and full bed simultaneously at high levels.",
+    "No separate bedroom and living-room zones.",
+    "No floating, duplicated, distorted, or physically impossible furniture.",
+    "No transition into a dining room, kitchen, office, hotel room, or other scene category.",
+    "No changes unrelated to interpolation between Image_L and Image_B."
+  ]
+}

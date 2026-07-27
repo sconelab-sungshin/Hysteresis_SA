@@ -1,0 +1,216 @@
+{
+  "project": "Hysteresis_SA",
+  "stimulus_set": "set01_AW",
+  "notes": {
+    "description": "JSON prompts used to generate facial expression transition stimuli.",
+    "version_info": "This file contains separate prompt specifications for happy and angry expression versions."
+  },
+  "prompts": {
+    "happy_version": {
+      "comment": "Happy expression generation prompt. Intensity increases from neutral to happy.",
+      "task": "Generate 20 separate happy-expression images from a single neutral reference image.",
+      "reference_images": {
+        "Image_N": "Neutral 0% reference image"
+      },
+      "goal": "Using only the neutral reference image, generate 20 new images in which happiness increases gradually and naturally from 5% to 100% in 5% increments.",
+      "total_output_images": 20
+    },
+    "angry_version": {
+      "comment": "Angry expression generation prompt. Intensity increases from neutral to angry.",
+      "task": "Generate 20 separate angry-expression images from a single neutral reference image.",
+      "reference_images": {
+        "Image_N": "Neutral 0% reference image"
+      },
+      "goal": "Using only the neutral reference image, generate 20 new images in which anger increases gradually and naturally from 5% to 100% in 5% increments.",
+      "total_output_images": 20
+    }
+  }
+}
+
+
+
+{
+  "task": "Generate 20 separate happy-expression images from a single neutral reference image.",
+  "reference_images": {
+    "Image_N": "Neutral 0% reference image"
+  },
+  "goal": "Using only the neutral reference image, generate 20 new images in which happiness increases gradually and naturally from 5% to 100% in 5% increments, while keeping all non-expression features unchanged.",
+  "total_output_images": 20,
+  "intensity_levels": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85,
+    90,
+    95,
+    100
+  ],
+  "output_files": [
+    "happy_005",
+    "happy_010",
+    "happy_015",
+    "happy_020",
+    "happy_025",
+    "happy_030",
+    "happy_035",
+    "happy_040",
+    "happy_045",
+    "happy_050",
+    "happy_055",
+    "happy_060",
+    "happy_065",
+    "happy_070",
+    "happy_075",
+    "happy_080",
+    "happy_085",
+    "happy_090",
+    "happy_095",
+    "happy_100"
+  ],
+  "core_instruction": "Start from the neutral face and create a smooth monotonic increase in happiness. happy_005 should be almost neutral with only the faintest trace of a smile. Each subsequent image should be slightly happier than the previous one. happy_100 should show a fully happy expression that still looks natural for the same person.",
+  "expression_guidelines": [
+    "Gradually raise the mouth corners.",
+    "Gradually increase smile curvature.",
+    "Gradually increase cheek lift.",
+    "Gradually increase subtle eye-smile and warmth around the eyes.",
+    "Keep the progression continuous and perceptually even.",
+    "Make adjacent images differ only very slightly.",
+    "Avoid sudden jumps in smile intensity between neighboring frames.",
+    "If teeth become visible, introduce them gradually and naturally only at higher intensity levels."
+  ],
+  "continuity_requirements": [
+    "The expression intensity must increase smoothly and continuously from 5% to 100%.",
+    "Each image must look like a natural continuation of the previous and next image.",
+    "happy_005 must be very close to neutral.",
+    "happy_100 must represent the strongest happy expression in the sequence, while still remaining realistic."
+  ],
+  "identity_and_visual_lock": [
+    "Preserve the exact same person identity.",
+    "Preserve the exact same facial structure, head position, gaze direction, hairstyle, clothing, and body posture.",
+    "Preserve the exact same framing, crop, camera angle, perspective, lighting, color tone, sharpness, and background.",
+    "Do not change age, skin tone, hair, clothes, or image composition.",
+    "Only change the facial expression."
+  ],
+  "output_format": {
+    "separate_files": true,
+    "collage": false,
+    "contact_sheet": false,
+    "instruction": "Generate 20 separate full-resolution image files, one for each happiness level. Do not combine multiple faces into one image."
+  },
+  "negative_constraints": [
+    "No collage.",
+    "No text labels inside the image.",
+    "No background change.",
+    "No pose change.",
+    "No hairstyle change.",
+    "No clothing change.",
+    "No abrupt changes in expression.",
+    "No unintended emotions such as anger, sadness, fear, disgust, contempt, or surprise."
+  ]
+}
+
+{
+  "task": "Generate 20 separate angry-expression images from a single neutral reference image.",
+  "reference_images": {
+    "Image_N": "Neutral 0% reference image"
+  },
+  "goal": "Using only the neutral reference image, generate 20 new images in which anger increases gradually and naturally from 5% to 100% in 5% increments, while keeping all non-expression features unchanged.",
+  "total_output_images": 20,
+  "intensity_levels": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85,
+    90,
+    95,
+    100
+  ],
+  "output_files": [
+    "angry_005",
+    "angry_010",
+    "angry_015",
+    "angry_020",
+    "angry_025",
+    "angry_030",
+    "angry_035",
+    "angry_040",
+    "angry_045",
+    "angry_050",
+    "angry_055",
+    "angry_060",
+    "angry_065",
+    "angry_070",
+    "angry_075",
+    "angry_080",
+    "angry_085",
+    "angry_090",
+    "angry_095",
+    "angry_100"
+  ],
+  "core_instruction": "Start from the neutral face and create a smooth monotonic increase in anger. angry_005 should be almost neutral with only the faintest trace of anger. Each subsequent image should be slightly angrier than the previous one. angry_100 should show a fully angry expression that still looks natural for the same person.",
+  "expression_guidelines": [
+    "Gradually increase brow tension.",
+    "Gradually draw the eyebrows slightly downward and inward.",
+    "Gradually increase tension around the eyes.",
+    "Gradually increase tension around the nose bridge and upper face.",
+    "Gradually tighten the lips and mouth area.",
+    "Keep the progression continuous and perceptually even.",
+    "Make adjacent images differ only very slightly.",
+    "Avoid sudden jumps in frowning intensity between neighboring frames."
+  ],
+  "continuity_requirements": [
+    "The expression intensity must increase smoothly and continuously from 5% to 100%.",
+    "Each image must look like a natural continuation of the previous and next image.",
+    "angry_005 must be very close to neutral.",
+    "angry_100 must represent the strongest angry expression in the sequence, while still remaining realistic."
+  ],
+  "identity_and_visual_lock": [
+    "Preserve the exact same person identity.",
+    "Preserve the exact same facial structure, head position, gaze direction, hairstyle, clothing, and body posture.",
+    "Preserve the exact same framing, crop, camera angle, perspective, lighting, color tone, sharpness, and background.",
+    "Do not change age, skin tone, hair, clothes, or image composition.",
+    "Only change the facial expression."
+  ],
+  "output_format": {
+    "separate_files": true,
+    "collage": false,
+    "contact_sheet": false,
+    "instruction": "Generate 20 separate full-resolution image files, one for each anger level. Do not combine multiple faces into one image."
+  },
+  "negative_constraints": [
+    "No collage.",
+    "No text labels inside the image.",
+    "No background change.",
+    "No pose change.",
+    "No hairstyle change.",
+    "No clothing change.",
+    "No abrupt changes in expression.",
+    "No unintended emotions such as happiness, sadness, fear, disgust, contempt, or surprise."
+  ]
+}
