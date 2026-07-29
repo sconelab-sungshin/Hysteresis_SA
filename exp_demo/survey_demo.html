@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hysteresis_SA Survey</title>
+
+  <!-- jsPsych core and plugins -->
+  <script src="https://unpkg.com/jspsych@8.2.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.1.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    body {
+      background-color: #f7f7f7;
+      color: #222;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+    }
+
+    .survey-card {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 32px 36px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+      text-align: left;
+    }
+
+    .missing-warning {
+      margin: 12px 0 16px 0;
+      padding: 10px 14px;
+      background: #fff3cd;
+      border: 1px solid #ffe08a;
+      border-radius: 8px;
+      color: #6b4e00;
+      font-weight: 700;
+    }
+
+    .survey-progress {
+     margin: 10px 0 18px 0;
+     font-weight: 700;
+     color: #333;
+    }
+
+    .jspsych-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .survey-card h1 {
+      margin-top: 0;
+      text-align: center;
+      font-size: 30px;
+    }
+
+    .survey-card h2 {
+      margin-top: 6px;
+      font-size: 24px;
+    }
+
+    .instruction {
+      line-height: 1.7;
+      font-size: 17px;
+      margin-bottom: 24px;
+    }
+
+    .likert-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 15px;
+    }
+
+    .likert-table th,
+    .likert-table td {
+      border: 1px solid #ccc;
+      padding: 10px 8px;
+      vertical-align: middle;
+    }
+
+    .likert-table th {
+      background-color: #f0f2f5;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .item-no {
+      width: 52px;
+      text-align: center;
+    }
+
+    .item-text {
+      width: 45%;
+      line-height: 1.55;
+    }
+
+    .option-cell {
+      text-align: center;
+      width: 11%;
+    }
+
+    .option-cell input[type="radio"] {
+      transform: scale(1.25);
+      cursor: pointer;
+    }
+
+    .demo-form {
+      max-width: 760px;
+      margin: 0 auto;
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .demo-question {
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #e4e4e4;
+    }
+
+    .demo-question label {
+      display: block;
+      margin: 7px 0;
+      cursor: pointer;
+    }
+
+    .demo-question input[type="number"],
+    .demo-question input[type="text"] {
+      padding: 8px 10px;
+      font-size: 16px;
+      width: 240px;
+      max-width: 90%;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+    }
+
+    .small-note {
+      color: #666;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .jspsych-btn {
+      font-size: 17px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+
+<body></body>
+
+<script>
+const jsPsych = initJsPsych({
+  show_progress_bar: true,
+  on_finish: function() {
+    console.log(jsPsych.data.get().csv());
+  }
+});
+
+  const participant_id = jsPsych.randomization.randomID(10);
+
+  jsPsych.data.addProperties({
+    participant_id: participant_id,
+    experiment_part: "questionnaire"
+  });
+
+  const timeline = [];
+
+  const staiOptions = [
+    { value: 1, label: "거의<br>그렇지<br>않다" },
+    { value: 2, label: "가끔<br>그렇다" },
+    { value: 3, label: "자주<br>그렇다" },
+    { value: 4, label: "언제나<br>그렇다" }
+  ];
+
+  const socialAnxietyOptions = [
+    { value: 0, label: "전혀<br>그렇지<br>않다" },
+    { value: 1, label: "그렇지<br>않다" },
+    { value: 2, label: "보통<br>이다" },
+    { value: 3, label: "그렇다" },
+    { value: 4, label: "매우<br>그렇다" }
+  ];
+
+  const staiItems = [
+    "나는 유쾌하다.",
+    "나는 초조하고 안절부절하다.",
+    "나는 자신에 만족한다.",
+    "나도 남들처럼 행복했으면 좋겠다.",
+    "나는 낙오자처럼 느낀다.",
+    "나는 느긋하다.",
+    "나는 평온하고 침착하다.",
+    "나는 어려움이 많아서 감당해내지 못할 것 같다.",
+    "나는 대수롭지 않은 일에 너무 걱정하는 편이다.",
+    "나는 행복하다.",
+    "나는 여러 생각들로 마음이 혼란스럽다.",
+    "나는 자신감이 부족하다.",
+    "나는 안전하다.",
+    "나는 어렵지 않게 일을 결정한다.",
+    "나는 자신이 부적절하다고 느낀다.",
+    "나는 만족스럽다.",
+    "나는 사소한 생각으로 마음을 쓰고 괴로워한다.",
+    "나는 한 번 낙담하면 헤어나기 힘들다.",
+    "나는 쉽게 동요하지 않는다.",
+    "나는 당면한 문제들로 긴장되고 짜증스럽다."
+  ];
+
+  const kspsItems = [
+    "나는 사람들 앞에서 글을 써야 할 때면 불안해진다.",
+    "공중 화장실을 사용할 때 남의 이목을 의식하게 된다.",
+    "내 목소리와 내게 귀 기울이고 있는 다른 사람들이 의식되곤 한다.",
+    "길을 가고 있을 때 사람들이 나를 주시하지 않을까 신경이 쓰인다.",
+    "다른 사람들과 함께 있을 때 얼굴이 붉어질까봐 두렵다.",
+    "다른 사람들이 이미 앉아 있는 방에 들어갈 때는 남의 이목을 의식하게 된다.",
+    "다른 사람들이 쳐다보고 있을 때 떨게 되지 않을까 걱정된다.",
+    "버스나 기차에서 다른 사람들과 마주앉아야 할 경우 긴장되곤 한다.",
+    "다른 사람들에게 정신을 잃거나 병적인 모습을 보이지 않을까 공포스럽다.",
+    "여러 사람들 사이에 있으면 무언가를 마시는 것이 힘들다.",
+    "식당에서 낯선 사람들 앞에서 음식을 먹을 때면 남의 이목을 의식하게 된다.",
+    "사람들이 내 행동을 이상하게 생각할까봐 걱정된다.",
+    "식판을 들고 번잡한 식당을 가로질러 지나가려면 긴장되곤 한다.",
+    "다른 사람들 앞에서 자제력을 잃지 않을까 걱정된다.",
+    "다른 사람의 관심을 끄는 행동을 하게 될까 봐 걱정된다.",
+    "엘리베이터에 있을 때, 다른 사람들이 나를 쳐다보지 않을까 긴장된다.",
+    "줄을 서 있을 때, 나만 유난히 눈에 띌 것 같이 느껴진다.",
+    "다른 사람들 앞에서 말을 할 때면 긴장된다.",
+    "다른 사람들 앞에서 고개를 가로젓거나 끄덕거릴 것 같아 걱정된다.",
+    "사람들이 나를 쳐다보고 있다는 사실을 알게 되면 거북하고 긴장된다."
+  ];
+
+  // NOTE: 첨부 PDF에는 K-SIAS 1~19번 문항까지만 보이고, 20번 문항은 보이지 않았음.
+  const ksiasItems = [
+    "나보다 높은 지위에 있는 사람과 대화할 때면 긴장된다.",
+    "다른 사람들과 눈을 마주치기가 힘들다.",
+    "나 자신이나 내 감정에 대해서 말해야 할 때면 긴장된다.",
+    "동료들과 편안하게 어울리는 것이 어렵다.",
+    "길에서 아는 사람을 만나면 긴장된다.",
+    "여러 사람들과 어울리는 것이 불편하다.",
+    "다른 사람과 단둘이 있는 상황에서는 긴장된다.",
+    "모임에서 사람들을 만나는 것이 편안하다.",
+    "다른 사람들과 이야기하는 것이 어렵다.",
+    "이야깃거리를 쉽게 생각해낸다.",
+    "이상하게 보일까 봐 나 자신을 표현하는 것이 걱정된다.",
+    "다른 사람의 주장에 반대하기가 어렵다.",
+    "매력적인 이성과 이야기하는 것이 어렵다.",
+    "사회적 상황에서 무엇을 말해야 할지 몰라 걱정하곤 한다.",
+    "잘 알지 못하는 사람들과 어울려야 할 때 불편하다.",
+    "대화 도중 부적절한 말을 할 것 같다.",
+    "여러 사람들과 어울려 이야기할 때 무시당할까 봐 걱정하곤 한다.",
+    "여러 사람들과 어울릴 때 긴장한다.",
+    "잘 알지 못하는 사람에게 인사를 해야 할지 망설인다."
+  ];
+
+  function escapeHtml(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function makeLikertHtml(items, options, namePrefix) {
+  const headerCells = options.map(opt => `<th>${opt.label}</th>`).join("");
+
+  const rows = items.map((item, index) => {
+    const itemNumber = index + 1;
+    const qName = `${namePrefix}_${String(itemNumber).padStart(2, "0")}`;
+
+    const optionCells = options.map(opt => `
+      <td class="option-cell">
+        <input type="radio" name="${qName}" value="${opt.value}" required>
+      </td>
+    `).join("");
+
+    return `
+      <tr>
+        <td class="item-no">${itemNumber}</td>
+        <td class="item-text">${escapeHtml(item)}</td>
+        ${optionCells}
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="missing-warning" id="${namePrefix}_warning">
+      모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.
+    </div>
+
+    <div class="survey-progress" id="${namePrefix}_progress">
+      응답: 0 / ${items.length}
+    </div>
+
+    <table class="likert-table">
+      <thead>
+        <tr>
+          <th class="item-no">번호</th>
+          <th class="item-text">문항</th>
+          ${headerCells}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+  function makeLikertTrial({ scaleId, title, instruction, items, options, namePrefix }) {
+  return {
+    type: jsPsychSurveyHtmlForm,
+    preamble: "",
+    html: `
+      <div class="survey-card">
+        <h2>${title}</h2>
+        <div class="instruction">${instruction}</div>
+        ${makeLikertHtml(items, options, namePrefix)}
+      </div>
+    `,
+    button_label: "다음",
+    autocomplete: false,
+    data: {
+      task: "questionnaire",
+      scale_id: scaleId
+    },
+    on_load: function() {
+      const button = document.querySelector("#jspsych-survey-html-form-next");
+      const warning = document.querySelector(`#${namePrefix}_warning`);
+      const progress = document.querySelector(`#${namePrefix}_progress`);
+
+      function updateProgress() {
+        let answered = 0;
+
+        for (let i = 1; i <= items.length; i++) {
+          const qName = `${namePrefix}_${String(i).padStart(2, "0")}`;
+          const checked = document.querySelector(`input[name="${qName}"]:checked`);
+
+          if (checked) {
+            answered++;
+          }
+        }
+
+        progress.textContent = `응답: ${answered} / ${items.length}`;
+
+        if (answered === items.length) {
+          warning.style.display = "none";
+          button.disabled = false;
+        } else {
+          warning.style.display = "block";
+          button.disabled = true;
+        }
+      }
+
+      document
+        .querySelectorAll(`input[type="radio"][name^="${namePrefix}_"]`)
+        .forEach(input => {
+          input.addEventListener("change", updateProgress);
+        });
+
+      updateProgress();
+    },
+    on_finish: function(data) {
+      const responses = data.response || {};
+      data.n_items_answered = Object.keys(responses).length;
+    }
+  };
+}
+
+  const intro = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="survey-card">
+        <h1>설문지</h1>
+        <p class="instruction">
+          다음 설문은 평소에 느끼는 정서 및 사회적 상황에서의 생각과 감정에 관한 문항으로 구성되어 있습니다.<br>
+          각 문항을 주의 깊게 읽고, 본인에게 가장 잘 해당하는 보기를 선택해 주십시오.
+        </p>
+        <p style="text-align:center; font-weight:700;">아무 키나 누르면 시작합니다.</p>
+      </div>
+    `
+  };
+
+  const staiTrial = makeLikertTrial({
+    scaleId: "STAI_Trait",
+    title: "특성 불안 척도(STAI-Trait)",
+    instruction: "다음 각 문항을 잘 읽고 귀하가 평소에 일상적으로 흔히 느끼고 있는 정도를 나타낸 부분을 선택해 주십시오.",
+    items: staiItems,
+    options: staiOptions,
+    namePrefix: "stai_t"
+  });
+
+  const kspsTrial = makeLikertTrial({
+    scaleId: "K_SPS",
+    title: "사회적 공포 척도(K-SPS)",
+    instruction: "다음 문항들은 사회적 상황에서 경험할 수 있는 생각과 감정에 대한 것입니다. 각각의 문항들을 주의 깊게 읽으시고, 해당되는 정도를 선택해 주십시오.",
+    items: kspsItems,
+    options: socialAnxietyOptions,
+    namePrefix: "ksps"
+  });
+
+  const ksiasTrial = makeLikertTrial({
+    scaleId: "K_SIAS",
+    title: "사회적 상호작용 불안 척도(K-SIAS)",
+    instruction: "다음 문항들은 사회적 상황에서 경험할 수 있는 생각과 감정에 대한 것입니다. 각각의 문항들을 주의 깊게 읽으시고, 해당되는 정도를 선택해 주십시오.",
+    items: ksiasItems,
+    options: socialAnxietyOptions,
+    namePrefix: "ksias"
+  });
+
+ const demographicsTrial = {
+  type: jsPsychSurveyHtmlForm,
+  preamble: "",
+  html: `
+    <div class="survey-card">
+      <h2>인구 통계학적 정보</h2>
+      <p class="instruction">
+        다음 문항은 연구 참여 가능 여부를 확인하기 위한 문항입니다.<br>
+        각 문항에 응답해 주십시오.
+      </p>
+
+      <div class="demo-form">
+        <div class="missing-warning" id="screening_warning">
+          모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.
+        </div>
+
+        <div class="survey-progress" id="screening_progress">
+          응답: 0 / 5
+        </div>
+
+        <div class="demo-question">
+          <p><strong>1. 귀하의 만 나이를 작성해 주십시오.</strong> <span class="small-note">(예: 23)</span></p>
+          <input type="number" name="age" min="1" max="120">
+        </div>
+
+        <div class="demo-question">
+          <p><strong>2. 귀하의 생물학적 성별은 무엇입니까?</strong></p>
+          <label><input type="radio" name="biological_sex" value="female"> 여성</label>
+          <label><input type="radio" name="biological_sex" value="male"> 남성</label>
+        </div>
+
+        <div class="demo-question">
+          <p><strong>3. 귀하의 나안 또는 교정 시력은 0.8 이상입니까?</strong></p>
+          <label><input type="radio" name="vision_08_or_above" value="yes"> 예</label>
+          <label><input type="radio" name="vision_08_or_above" value="no"> 아니오</label>
+        </div>
+
+        <div class="demo-question">
+          <p><strong>4. 귀하는 색맹 또는 색약 진단을 받은 적이 있습니까?</strong></p>
+          <label><input type="radio" name="color_vision_deficiency" value="yes"> 예</label>
+          <label><input type="radio" name="color_vision_deficiency" value="no"> 아니오</label>
+        </div>
+
+        <div class="demo-question">
+          <p><strong>5. 귀하는 현재 또는 과거에 시각 지각이나 컴퓨터 기반 과제 수행에 영향을 줄 수 있는 신경학적 질환을 진단받은 적이 있습니까?</strong></p>
+          <label><input type="radio" name="neurological_disease" value="yes"> 예</label>
+          <label><input type="radio" name="neurological_disease" value="no"> 아니오</label>
+
+          <p class="small-note">예라고 응답한 경우 질환명을 기재해 주십시오.</p>
+          <input type="text" name="neurological_disease_name" placeholder="질환명">
+        </div>
+
+        <div class="missing-warning">
+          연구 참여 기준을 충족하지 않는 경우, 이후 설문으로 진행되지 않고 설문이 종료됩니다.
+        </div>
+      </div>
+    </div>
+  `,
+  button_label: "다음",
+  autocomplete: false,
+  data: {
+    task: "questionnaire",
+    scale_id: "demographics"
+  },
+  on_load: function() {
+    const button = document.querySelector("#jspsych-survey-html-form-next");
+    const warning = document.querySelector("#screening_warning");
+    const progress = document.querySelector("#screening_progress");
+
+    function isAnswered(name) {
+      return document.querySelector(`input[name="${name}"]:checked`) !== null;
+    }
+
+    function updateScreeningProgress() {
+      const ageValue = document.querySelector('input[name="age"]').value.trim();
+      const ageAnswered = ageValue !== "" && Number(ageValue) >= 1 && Number(ageValue) <= 120;
+
+      const sexAnswered = isAnswered("biological_sex");
+      const visionAnswered = isAnswered("vision_08_or_above");
+      const colorAnswered = isAnswered("color_vision_deficiency");
+      const neuroAnswered = isAnswered("neurological_disease");
+
+      const answeredCount = [
+        ageAnswered,
+        sexAnswered,
+        visionAnswered,
+        colorAnswered,
+        neuroAnswered
+      ].filter(Boolean).length;
+
+      progress.textContent = `응답: ${answeredCount} / 5`;
+
+      if (answeredCount === 5) {
+        warning.style.display = "none";
+        button.disabled = false;
+      } else {
+        warning.style.display = "block";
+        button.disabled = true;
+      }
+    }
+
+    document
+      .querySelectorAll('input[name="age"], input[type="radio"]')
+      .forEach(input => {
+        input.addEventListener("input", updateScreeningProgress);
+        input.addEventListener("change", updateScreeningProgress);
+      });
+
+    updateScreeningProgress();
+  },
+  on_finish: function(data) {
+    const r = data.response || {};
+
+    const ineligibilityReasons = [];
+
+    if (r.vision_08_or_above === "no") {
+      ineligibilityReasons.push("vision_below_0.8");
+    }
+
+    if (r.color_vision_deficiency === "yes") {
+      ineligibilityReasons.push("color_vision_deficiency");
+    }
+
+    if (r.neurological_disease === "yes") {
+      ineligibilityReasons.push("neurological_disease");
+    }
+
+    data.eligible = ineligibilityReasons.length === 0;
+    data.ineligibility_reason = ineligibilityReasons.length > 0
+      ? ineligibilityReasons.join(";")
+      : "eligible";
+  }
+};
+const ineligibleEnd = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <div class="survey-card">
+      <h1>설문이 종료되었습니다.</h1>
+      <p class="instruction">
+        응답해 주셔서 감사합니다.<br>
+        본 연구의 참여 기준에 따라 이후 설문으로 진행되지 않습니다.
+      </p>
+      <p style="text-align:center; font-weight:700;">
+        아무 키나 누르면 종료됩니다.
+      </p>
+    </div>
+  `,
+  data: {
+    task: "screening_end",
+    eligibility_status: "ineligible"
+  }
+};
+  const end = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="survey-card">
+        <h1>설문이 완료되었습니다.</h1>
+        <p class="instruction">
+          응답해 주셔서 감사합니다.<br>
+          아무 키나 누르면 응답이 제출됩니다.
+        </p>
+      </div>
+    `
+  };
+
+const ineligibleNode = {
+  timeline: [ineligibleEnd],
+  conditional_function: function() {
+    const demoData = jsPsych.data.get()
+      .filter({ scale_id: "demographics" })
+      .last(1)
+      .values()[0];
+
+    return demoData.eligible === false;
+  }
+};
+
+const eligibleQuestionnaireNode = {
+  timeline: [
+    staiTrial,
+    kspsTrial,
+    ksiasTrial,
+    end
+  ],
+  conditional_function: function() {
+    const demoData = jsPsych.data.get()
+      .filter({ scale_id: "demographics" })
+      .last(1)
+      .values()[0];
+
+    return demoData.eligible === true;
+  }
+};
+
+timeline.push(
+  intro,
+  demographicsTrial,
+  ineligibleNode,
+  eligibleQuestionnaireNode
+);
+
+  jsPsych.run(timeline);
+</script>
+</html>
