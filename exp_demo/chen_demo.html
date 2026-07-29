@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
   <head>
     <meta charset="utf-8">
     <title>Chen-style Hysteresis Demo - Condition Matrix</title>
@@ -59,7 +59,6 @@
         overflow: hidden;
       }
 
-      /* 자극 이미지 또는 fixation panel이 정확히 화면 중앙에 오도록 고정 */
       .stim-box {
         position: absolute;
         left: 50%;
@@ -95,7 +94,6 @@
         line-height: 1;
       }
 
-      /* 체크 표시는 이미지 위치를 밀지 않도록 별도 absolute 위치에 표시 */
       .check-feedback {
         position: absolute;
         left: 50%;
@@ -120,7 +118,7 @@
       on_finish: function() {
         jsPsych.data.displayData();
 
-        // 데이터를 csv로 저장하고 싶으면 아래 줄의 주석을 해제하면 됨
+        // 데이터를 CSV로 저장하고 싶으면 아래 줄의 주석을 해제하면 됨
         // jsPsych.data.get().localSave('csv', 'chen_condition_demo_data.csv');
       }
     });
@@ -130,18 +128,18 @@
     // 2. Condition Matrix 만들기
     // =========================================================
 
-    function make_frame_files(stim_path, direction_code) {
+    function make_frame_files(stim_path, direction_code, image_extension) {
       const frames = [];
 
       if (direction_code === 1) {
         // happy_to_angry: frame_001 → frame_041
         for (let i = 1; i <= 41; i++) {
-          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.png`);
+          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.${image_extension}`);
         }
       } else {
         // angry_to_happy: frame_041 → frame_001
         for (let i = 41; i >= 1; i--) {
-          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.png`);
+          frames.push(`${stim_path}frame_${String(i).padStart(3, '0')}.${image_extension}`);
         }
       }
 
@@ -149,101 +147,95 @@
     }
 
 
-    const conditionMatrix = [
-      // -------------------------
-      // repeat 1
-      // -------------------------
-      {
-        trial_id: 1,
-        set_id: 1,
-        model_code: 'AW',
-        stim_path: '../../2. stimuli/images/set01/',
-        direction_code: 1,
-        direction_label: 'happy_to_angry',
-        repeat: 1,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
-      },
-      {
-        trial_id: 2,
-        set_id: 1,
-        model_code: 'AW',
-        stim_path: '../../2. stimuli/images/set01/',
-        direction_code: 0,
-        direction_label: 'angry_to_happy',
-        repeat: 1,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
-      },
-      {
-        trial_id: 3,
-        set_id: 2,
-        model_code: 'AM',
-        stim_path: '../../2. stimuli/images/set02/',
-        direction_code: 1,
-        direction_label: 'happy_to_angry',
-        repeat: 1,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
-      },
+    // 현재 GitHub 폴더 구조 기준:
+    //
+    // Hysteresis_SA/
+    // └── exp_demo/
+    //     ├── chen_demo.html
+    //     └── images/
+    //         ├── set01/
+    //         ├── set02/
+    //         └── set03/
+    //
+    // 따라서 stim_path는 'images/set01/'처럼 작성함.
 
-      // -------------------------
-      // repeat 2
-      // -------------------------
+    const stimulusSets = [
       {
-        trial_id: 4,
         set_id: 1,
         model_code: 'AW',
-        stim_path: '../../2. stimuli/images/set01/',
-        direction_code: 1,
-        direction_label: 'happy_to_angry',
-        repeat: 2,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
+        stim_path: 'images/set01/',
+        image_extension: 'png'
       },
       {
-        trial_id: 5,
-        set_id: 1,
-        model_code: 'AW',
-        stim_path: '../../2. stimuli/images/set01/',
-        direction_code: 0,
-        direction_label: 'angry_to_happy',
-        repeat: 2,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
-      },
-      {
-        trial_id: 6,
         set_id: 2,
         model_code: 'AM',
-        stim_path: '../../2. stimuli/images/set02/',
-        direction_code: 1,
-        direction_label: 'happy_to_angry',
-        repeat: 2,
-        n_frames: 41,
-        frame_duration_ms: 200,
-        fixation_duration_ms: 300,
-        response_key: 'space'
+        stim_path: 'images/set02/',
+        image_extension: 'png'
+      },
+      {
+        set_id: 3,
+        model_code: 'AW2',
+        stim_path: 'images/set03/',
+        image_extension: 'png'
       }
     ];
 
+    const directions = [
+      {
+        direction_code: 1,
+        direction_label: 'happy_to_angry'
+      },
+      {
+        direction_code: 0,
+        direction_label: 'angry_to_happy'
+      }
+    ];
 
+    const repeats = [1, 2];
+
+    const conditionMatrix = [];
+
+    let trialCounter = 1;
+
+    repeats.forEach(repeat => {
+      stimulusSets.forEach(stimulusSet => {
+        directions.forEach(direction => {
+          conditionMatrix.push({
+            trial_id: trialCounter,
+
+            set_id: stimulusSet.set_id,
+            model_code: stimulusSet.model_code,
+            stim_path: stimulusSet.stim_path,
+            image_extension: stimulusSet.image_extension,
+
+            direction_code: direction.direction_code,
+            direction_label: direction.direction_label,
+
+            repeat: repeat,
+            n_frames: 41,
+            frame_duration_ms: 200,
+            fixation_duration_ms: 300,
+            response_key: ' '
+          });
+
+          trialCounter++;
+        });
+      });
+    });
+
+
+    // 중요:
+    // conditionMatrix를 만든 뒤, 각 condition에 실제 frame 파일 경로 목록을 추가해야 함.
+    // 이 부분이 빠지면 preload에서 이미지를 제대로 불러오지 못함.
     conditionMatrix.forEach(condition => {
       condition.frame_files = make_frame_files(
         condition.stim_path,
-        condition.direction_code
+        condition.direction_code,
+        condition.image_extension
       );
     });
+
+    console.log('conditionMatrix:', conditionMatrix);
 
 
     // =========================================================
@@ -253,9 +245,14 @@
       ...new Set(conditionMatrix.flatMap(condition => condition.frame_files))
     ];
 
+    console.log('preload_images:', preload_images);
+
     const preload = {
       type: jsPsychPreload,
-      images: preload_images
+      images: preload_images,
+      message: '이미지를 불러오는 중입니다. 잠시만 기다려 주세요.',
+      error_message: '이미지를 불러오지 못했습니다. 이미지 경로, 폴더명, 파일명, 확장자를 확인해 주세요.',
+      continue_after_error: false
     };
 
 
@@ -281,7 +278,10 @@
         const condition_name = trial.condition_name ?? '';
         const transition_frame = trial.transition_frame ?? null;
 
-        // 체크 표시가 보이는 시간
+        console.log('Starting trial:', trial.data);
+        console.log('First frame:', frames[0]);
+        console.log('Last frame:', frames[frames.length - 1]);
+
         const CHECK_DURATION_MS = 250;
 
         let stepIndex = 0;
@@ -294,13 +294,14 @@
         let timeoutId = null;
         let checkTimeoutId = null;
 
-        // 현재 화면 상태: 'frame' 또는 'fixation'
         let currentDisplayMode = 'frame';
         let currentSrc = null;
         let showCheck = false;
 
         function checkHtml() {
-          return showCheck ? `<div class="check-feedback">✓</div>` : `<div class="check-feedback"></div>`;
+          return showCheck
+            ? `<div class="check-feedback">✓</div>`
+            : `<div class="check-feedback"></div>`;
         }
 
         function renderFrame(src) {
@@ -442,7 +443,7 @@
             <p>얼굴 표정 이미지가 연속적으로 제시됩니다.</p>
             <p>표정이 바뀌었다고 느끼는 순간 <strong>스페이스바</strong>를 누르세요.</p>
             <p>응답이 기록되면 이미지 아래에 <strong style="color:#2b6cb0;">파란색 체크 표시</strong>가 잠깐 나타납니다.</p>
-            <p>체크 표시가 나타난 이후에는 다시 누르지 않아도 됩니다.</p>
+            <p>체크 표시가 나타난 이후에는 다시 누르지 않으셔도 됩니다.</p>
             <br>
             <p>아무 키나 누르면 시작합니다.</p>
           </div>
@@ -480,7 +481,8 @@
 
         frame_duration: condition.frame_duration_ms,
         isi_duration: condition.fixation_duration_ms,
-        response_key: ' ',
+        response_key: condition.response_key,
+
         trial_type: 'smooth',
         condition_name: condition.direction_label,
 
@@ -491,6 +493,7 @@
           set_id: condition.set_id,
           model_code: condition.model_code,
           stim_path: condition.stim_path,
+          image_extension: condition.image_extension,
 
           direction_code: condition.direction_code,
           direction_label: condition.direction_label,
