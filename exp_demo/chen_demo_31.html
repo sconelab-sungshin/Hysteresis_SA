@@ -134,12 +134,12 @@
     // 2. 기본 설정
     // =========================================================
 
-    const N_FRAMES = 41;
+    const N_FRAMES = 31;
 
-    // 파일명이 frame_001.png, frame_002.png ... frame_041.png 형식이므로 3자리 사용
-    const FRAME_NUMBER_DIGITS = 3;
+    // 파일명이 frame_01.png, frame_02.png ... frame_31.png 형식이므로 2자리 사용
+    const FRAME_NUMBER_DIGITS = 2;
 
-    // trial 전환 cue: 흰색 fixation 1초 + 빨간색 fixation 200ms
+    // trial 전환 cue
     const TRIAL_CUE_WHITE_DURATION_MS = 1000;
     const TRIAL_CUE_COLOR_DURATION_MS = 200;
     const TRIAL_CUE_COLOR = "#ff3333";
@@ -149,18 +149,32 @@
     // 3. Condition Matrix 만들기
     // =========================================================
 
-    function make_frame_files(stim_path, direction_code, image_extension) {
+    function make_frame_file(stimulusSet, frameNumber) {
+      const frameNumberText = String(frameNumber).padStart(FRAME_NUMBER_DIGITS, '0');
+
+      // 네 파일 목록 기준으로 frame_16만 jpg였기 때문에 따로 처리함.
+      // frame_16도 png로 바꿨다면 아래 stimulusSets에서 neutral_extension을 'png'로 바꾸면 됨.
+      const extension =
+        frameNumber === 16
+          ? stimulusSet.neutral_extension
+          : stimulusSet.image_extension;
+
+      return `${stimulusSet.stim_path}frame_${frameNumberText}.${extension}`;
+    }
+
+
+    function make_frame_files(stimulusSet, direction_code) {
       const frames = [];
 
       if (direction_code === 1) {
-        // happy_to_angry: frame_001 → frame_041
+        // happy_to_angry: frame_01 → frame_31
         for (let i = 1; i <= N_FRAMES; i++) {
-          frames.push(`${stim_path}frame_${String(i).padStart(FRAME_NUMBER_DIGITS, '0')}.${image_extension}`);
+          frames.push(make_frame_file(stimulusSet, i));
         }
       } else {
-        // angry_to_happy: frame_041 → frame_001
+        // angry_to_happy: frame_31 → frame_01
         for (let i = N_FRAMES; i >= 1; i--) {
-          frames.push(`${stim_path}frame_${String(i).padStart(FRAME_NUMBER_DIGITS, '0')}.${image_extension}`);
+          frames.push(make_frame_file(stimulusSet, i));
         }
       }
 
@@ -168,38 +182,30 @@
     }
 
 
-    // 현재 GitHub 폴더 구조 기준:
-    //
-    // Hysteresis_SA/
-    // └── exp_demo/
-    //     ├── chen_demo.html
-    //     └── images_old/
-    //         ├── set01/
-    //         ├── set02/
-    //         └── set03/
-    //
-    // 따라서 stim_path는 'images_old/set01/'처럼 작성함.
-
     const stimulusSets = [
       {
         set_id: 1,
         model_code: 'AW',
-        stim_path: 'images_old/set01/',
-        image_extension: 'png'
+        stim_path: 'images/set01/',
+        image_extension: 'png',
+        neutral_extension: 'jpg'
       },
       {
         set_id: 2,
         model_code: 'AM',
-        stim_path: 'images_old/set02/',
-        image_extension: 'png'
+        stim_path: 'images/set02/',
+        image_extension: 'png',
+        neutral_extension: 'jpg'
       },
       {
         set_id: 3,
         model_code: 'AW2',
-        stim_path: 'images_old/set03/',
-        image_extension: 'png'
+        stim_path: 'images/set03/',
+        image_extension: 'png',
+        neutral_extension: 'jpg'
       }
     ];
+
 
     const directions = [
       {
@@ -211,6 +217,7 @@
         direction_label: 'angry_to_happy'
       }
     ];
+
 
     const repeats = [1, 2];
 
@@ -228,6 +235,7 @@
             model_code: stimulusSet.model_code,
             stim_path: stimulusSet.stim_path,
             image_extension: stimulusSet.image_extension,
+            neutral_extension: stimulusSet.neutral_extension,
 
             direction_code: direction.direction_code,
             direction_label: direction.direction_label,
@@ -239,11 +247,7 @@
             response_key: ' '
           };
 
-          condition.frame_files = make_frame_files(
-            condition.stim_path,
-            condition.direction_code,
-            condition.image_extension
-          );
+          condition.frame_files = make_frame_files(stimulusSet, direction.direction_code);
 
           conditionMatrix.push(condition);
           trialCounter++;
@@ -467,9 +471,13 @@
 
             responded = true;
 
+            // stepIndex는 0부터 시작하므로 1-indexed frame 번호로 저장
             response_frame = stepIndex + 1;
+
+            // 시퀀스 시작부터 첫 반응까지의 시간
             response_rt = performance.now() - trialStartTime;
 
+            // 파란 체크 표시를 순간적으로 보여주기
             flashCheck();
           },
           valid_responses: [response_key],
@@ -577,6 +585,7 @@
           model_code: condition.model_code,
           stim_path: condition.stim_path,
           image_extension: condition.image_extension,
+          neutral_extension: condition.neutral_extension,
 
           direction_code: condition.direction_code,
           direction_label: condition.direction_label,
