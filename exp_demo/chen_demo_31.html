@@ -152,14 +152,7 @@
     function make_frame_file(stimulusSet, frameNumber) {
       const frameNumberText = String(frameNumber).padStart(FRAME_NUMBER_DIGITS, '0');
 
-      // 네 파일 목록 기준으로 frame_16만 jpg였기 때문에 따로 처리함.
-      // frame_16도 png로 바꿨다면 아래 stimulusSets에서 neutral_extension을 'png'로 바꾸면 됨.
-      const extension =
-        frameNumber === 16
-          ? stimulusSet.neutral_extension
-          : stimulusSet.image_extension;
-
-      return `${stimulusSet.stim_path}frame_${frameNumberText}.${extension}`;
+      return `${stimulusSet.stim_path}frame_${frameNumberText}.${stimulusSet.image_extension}`;
     }
 
 
@@ -187,22 +180,19 @@
         set_id: 1,
         model_code: 'AW',
         stim_path: 'images/set01/',
-        image_extension: 'png',
-        neutral_extension: 'jpg'
+        image_extension: 'png'
       },
       {
         set_id: 2,
         model_code: 'AM',
         stim_path: 'images/set02/',
-        image_extension: 'png',
-        neutral_extension: 'jpg'
+        image_extension: 'png'
       },
       {
         set_id: 3,
         model_code: 'AW2',
         stim_path: 'images/set03/',
-        image_extension: 'png',
-        neutral_extension: 'jpg'
+        image_extension: 'png'
       }
     ];
 
@@ -235,7 +225,6 @@
             model_code: stimulusSet.model_code,
             stim_path: stimulusSet.stim_path,
             image_extension: stimulusSet.image_extension,
-            neutral_extension: stimulusSet.neutral_extension,
 
             direction_code: direction.direction_code,
             direction_label: direction.direction_label,
@@ -585,7 +574,6 @@
           model_code: condition.model_code,
           stim_path: condition.stim_path,
           image_extension: condition.image_extension,
-          neutral_extension: condition.neutral_extension,
 
           direction_code: condition.direction_code,
           direction_label: condition.direction_label,
