@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>ver1_dynamic_random</title>
+
+  <script src="https://unpkg.com/jspsych@8.2.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background-color: rgb(166,166,166);
+    }
+    .jspsych-display-element { background-color: rgb(166,166,166); }
+    #jspsych-content { max-width: none; }
+    .screen {
+      width: 100vw; height: 100vh;
+      display: flex; justify-content: center; align-items: center;
+      background-color: rgb(166,166,166);
+      font-family: Arial, sans-serif; color: black;
+      text-align: center;
+    }
+    .box {
+      max-width: 850px; line-height: 1.7; font-size: 20px;
+      padding: 20px 30px;
+    }
+    .task-screen {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      background-color: rgb(166,166,166);
+    }
+    .stim-box {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 301px; height: 225px;
+      transform: translate(-50%, -50%);
+      display: flex; justify-content: center; align-items: center;
+    }
+    .stim-img {
+      width: 301px; height: 225px;
+      object-fit: contain; display: block;
+    }
+    .feedback {
+      position: absolute;
+      left: 50%;
+      top: calc(50% + 112.5px + 14px);
+      transform: translateX(-50%);
+      min-height: 32px;
+      font-size: 28px;
+      color: #2b6cb0;
+      font-weight: bold;
+    }
+    .choice-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .choice-label {
+      font-size: 18px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body></body>
+
+<script>
+  const jsPsych = initJsPsych({
+    show_progress_bar: true,
+    on_finish: function() {
+      jsPsych.data.displayData();
+      // jsPsych.data.get().localSave('csv', 'ver1_dynamic_random_data.csv');
+    }
+  });
+
+  // =========================
+  // 기본 설정
+  // =========================
+  const N_SETS = 10;
+  const N_FRAMES = 31;
+  const FRAME_DURATION_MS = 500;   // 31 * 500ms = 약 15.5초
+  const DYNAMIC_REPS = 4;
+  const RANDOM_REPS = 3;
+
+  const SELECTED_LEVELS = [
+    { frame: 1,  category: "happy",   percent: 100, label: "happy_100" },
+    { frame: 4,  category: "happy",   percent: 80,  label: "happy_80" },
+    { frame: 7,  category: "happy",   percent: 60,  label: "happy_60" },
+    { frame: 10, category: "happy",   percent: 40,  label: "happy_40" },
+    { frame: 13, category: "happy",   percent: 20,  label: "happy_20" },
+    { frame: 16, category: "neutral", percent: 0,   label: "neutral_0" },
+    { frame: 19, category: "angry",   percent: 20,  label: "angry_20" },
+    { frame: 22, category: "angry",   percent: 40,  label: "angry_40" },
+    { frame: 25, category: "angry",   percent: 60,  label: "angry_60" },
+    { frame: 28, category: "angry",   percent: 80,  label: "angry_80" },
+    { frame: 31, category: "angry",   percent: 100, label: "angry_100" }
+  ];
+
+  const STIMULUS_SETS = Array.from({ length: N_SETS }, (_, i) => {
+    const setNumber = String(i + 1).padStart(2, "0");
+    return {
+      set_id: i + 1,
+      set_name: `set${setNumber}`,
+      stim_path: `images/set${setNumber}/`
+    };
+  });
+
+  function framePath(stimPath, frameNum) {
+    return `${stimPath}frame_${String(frameNum).padStart(2, "0")}.png`;
+  }
+
+  function makeAllFrames(stimPath, directionLabel) {
+    const frames = [];
+    if (directionLabel === "happy_to_angry") {
+      for (let i = 1; i <= N_FRAMES; i++) {
+        frames.push(framePath(stimPath, i));
+      }
+    } else {
+      for (let i = N_FRAMES; i >= 1; i--) {
+        frames.push(framePath(stimPath, i));
+      }
+    }
+    return frames;
+  }
+
+  // =========================
+  // preload
+  // =========================
+  const preloadImages = [];
+  STIMULUS_SETS.forEach(setObj => {
+    for (let f = 1; f <= N_FRAMES; f++) {
+      preloadImages.push(framePath(setObj.stim_path, f));
+    }
+  });
+
+  const preload = {
+    type: jsPsychPreload,
+    images: [...new Set(preloadImages)],
+    message: "이미지를 불러오는 중입니다. 잠시만 기다려 주세요.",
+    error_message: "이미지를 불러오지 못했습니다. 경로/파일명을 확인해 주세요.",
+    continue_after_error: false
+  };
+
+  // =========================
+  // 커스텀 플러그인:
+  // 한 sequence 안에서 neutral 시작/끝 2번 응답
+  // =========================
+  class TwoResponseSequencePlugin {
+    static info = {
+      name: 'two-response-sequence',
+      parameters: {}
+    };
+
+    constructor(jsPsych) {
+      this.jsPsych = jsPsych;
+    }
+
+    trial(display_element, trial) {
+      const frames = trial.frames;
+      const frameDuration = trial.frame_duration ?? 500;
+      const responseKey = trial.response_key ?? ' ';
+      const feedbackDuration = 250;
+
+      let frameIndex = 0;
+      let firstResponseFrame = null;
+      let firstResponseRt = null;
+      let secondResponseFrame = null;
+      let secondResponseRt = null;
+
+      let startTime = performance.now();
+      let timeoutId = null;
+      let feedbackTimeout = null;
+      let keyboardListener = null;
+      let showFeedback = false;
+      let currentSrc = frames[0];
+
+      const feedbackHtml = () => {
+        if (showFeedback) {
+          return `<div class="feedback">✓</div>`;
+        }
+        return `<div class="feedback"></div>`;
+      };
+
+      const renderFrame = (src) => {
+        currentSrc = src;
+        display_element.innerHTML = `
+          <div class="task-screen">
+            <div class="stim-box">
+              <img src="${src}" class="stim-img">
+            </div>
+            ${feedbackHtml()}
+          </div>
+        `;
+      };
+
+      const flashFeedback = () => {
+        showFeedback = true;
+        renderFrame(currentSrc);
+        if (feedbackTimeout) clearTimeout(feedbackTimeout);
+        feedbackTimeout = setTimeout(() => {
+          showFeedback = false;
+          renderFrame(currentSrc);
+        }, feedbackDuration);
+      };
+
+      const endTrial = () => {
+        if (keyboardListener) {
+          this.jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
+        }
+        if (timeoutId) clearTimeout(timeoutId);
+        if (feedbackTimeout) clearTimeout(feedbackTimeout);
+
+        display_element.innerHTML = '';
+
+        this.jsPsych.finishTrial({
+          ...trial.data,
+          first_response_frame: firstResponseFrame,
+          first_response_rt: firstResponseRt,
+          second_response_frame: secondResponseFrame,
+          second_response_rt: secondResponseRt,
+          responded_once: firstResponseFrame !== null,
+          responded_twice: secondResponseFrame !== null
+        });
+      };
+
+      keyboardListener = this.jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: () => {
+          const currentFrameNumber = frameIndex + 1;
+          const currentRt = performance.now() - startTime;
+
+          if (firstResponseFrame === null) {
+            firstResponseFrame = currentFrameNumber;
+            firstResponseRt = currentRt;
+            flashFeedback();
+          } else if (secondResponseFrame === null) {
+            secondResponseFrame = currentFrameNumber;
+            secondResponseRt = currentRt;
+            flashFeedback();
+          }
+        },
+        valid_responses: [responseKey],
+        rt_method: 'performance',
+        persist: true,
+        allow_held_key: false
+      });
+
+      const runSequence = () => {
+        if (frameIndex >= frames.length) {
+          endTrial();
+          return;
+        }
+
+        renderFrame(frames[frameIndex]);
+
+        timeoutId = setTimeout(() => {
+          frameIndex++;
+          runSequence();
+        }, frameDuration);
+      };
+
+      runSequence();
+    }
+  }
+
+  // =========================
+  // 안내문 / 브레이크
+  // =========================
+  function textScreen(html) {
+    return {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<div class="screen"><div class="box">${html}</div></div>`
+    };
+  }
+
+  function makeBreakScreen(text) {
+    return textScreen(`
+      <p>${text}</p>
+      <p>잠시 쉬신 뒤 아무 키나 누르면 계속 진행됩니다.</p>
+    `);
+  }
+
+  const intro = textScreen(`
+    <h2>실험 안내</h2>
+    <p><strong>Block 1 </strong>에서는 얼굴 표정이 연속적으로 변화합니다.</p>
+    <p>표정이 <strong>중립으로 바뀌기 시작했다고 느끼는 순간</strong> 스페이스바를 한 번 누르고,</p>
+    <p>중립이 끝나고 <strong>다른 감정으로 바뀌기 시작했다고 느끼는 순간</strong> 다시 한 번 누르세요.</p>
+    <br>
+    <p><strong>Block 2 </strong>에서는 한 장의 얼굴이 제시되며,</p>
+    <p><strong>happy / neutral / angry</strong> 중 하나를 선택하시면 됩니다.</p>
+    <br>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  const dynamicBlockIntro = textScreen(`
+    <h2>Block 1: Dynamic</h2>
+    <p>각 trial에서 스페이스바를 최대 두 번 누르세요.</p>
+    <p>1번째: neutral 시작 지점</p>
+    <p>2번째: neutral 종료 지점</p>
+    <br>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  const randomBlockIntro = textScreen(`
+    <h2>Block 2: Random 3AFC</h2>
+    <p>한 장의 얼굴을 보고 happy / neutral / angry 중 하나를 선택하세요.</p>
+    <br>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  const endScreen = textScreen(`
+    <h2>실험이 완료되었습니다.</h2>
+    <p>응답해 주셔서 감사합니다.</p>
+  `);
+
+  // =========================
+  // dynamic trial 생성
+  // =========================
+  const dynamicConditions = [];
+  STIMULUS_SETS.forEach(setObj => {
+    ["happy_to_angry", "angry_to_happy"].forEach(direction => {
+      for (let rep = 1; rep <= DYNAMIC_REPS; rep++) {
+        dynamicConditions.push({
+          set_id: setObj.set_id,
+          set_name: setObj.set_name,
+          stim_path: setObj.stim_path,
+          direction: direction,
+          repeat: rep,
+          frames: makeAllFrames(setObj.stim_path, direction)
+        });
+      }
+    });
+  });
+
+  const shuffledDynamicConditions = jsPsych.randomization.shuffle(dynamicConditions);
+
+  const dynamicTrials = shuffledDynamicConditions.map(cond => ({
+    type: TwoResponseSequencePlugin,
+    frames: cond.frames,
+    frame_duration: FRAME_DURATION_MS,
+    response_key: ' ',
+    data: {
+      block: "dynamic",
+      set_id: cond.set_id,
+      set_name: cond.set_name,
+      direction: cond.direction,
+      repeat: cond.repeat
+    }
+  }));
+
+  // =========================
+  // random 3AFC trial 생성
+  // =========================
+  const randomTrialPool = [];
+  STIMULUS_SETS.forEach(setObj => {
+    SELECTED_LEVELS.forEach(level => {
+      for (let rep = 1; rep <= RANDOM_REPS; rep++) {
+        randomTrialPool.push({
+          set_id: setObj.set_id,
+          set_name: setObj.set_name,
+          repeat: rep,
+          frame: level.frame,
+          category: level.category,
+          percent: level.percent,
+          level_label: level.label,
+          img: framePath(setObj.stim_path, level.frame)
+        });
+      }
+    });
+  });
+
+  const shuffledRandomPool = jsPsych.randomization.shuffle(randomTrialPool);
+
+  const responseOptions = ["happy", "neutral", "angry"];
+  const responseButtons = ["happy", "neutral", "angry"];
+
+  const randomTrials = shuffledRandomPool.map(t => ({
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+      <div class="screen">
+        <div class="choice-wrapper">
+          <img src="${t.img}" class="stim-img">
+          <div class="choice-label">이 표정은 무엇에 가깝습니까?</div>
+        </div>
+      </div>
+    `,
+    choices: responseButtons,
+    data: {
+      block: "random",
+      set_id: t.set_id,
+      set_name: t.set_name,
+      repeat: t.repeat,
+      frame_number: t.frame,
+      true_category: t.category,
+      intensity_percent: t.percent,
+      level_label: t.level_label
+    },
+    on_finish: function(data) {
+      data.response_label = responseOptions[data.response];
+      data.correct = data.response_label === data.true_category;
+    }
+  }));
+
+  function appendWithBreaks(targetTimeline, trials, everyN, blockName) {
+    trials.forEach((trial, index) => {
+      targetTimeline.push(trial);
+      if ((index + 1) % everyN === 0 && index < trials.length - 1) {
+        targetTimeline.push(
+          makeBreakScreen(`${blockName} block 진행 중입니다. (${index + 1} / ${trials.length})`)
+        );
+      }
+    });
+  }
+
+  // =========================
+  // timeline
+  // =========================
+  const timeline = [];
+  timeline.push(preload);
+  timeline.push(intro);
+
+  timeline.push(dynamicBlockIntro);
+  appendWithBreaks(timeline, dynamicTrials, 20, "Dynamic");
+
+  timeline.push(makeBreakScreen("Dynamic block이 끝났습니다."));
+  timeline.push(randomBlockIntro);
+  appendWithBreaks(timeline, randomTrials, 110, "Random");
+
+  timeline.push(endScreen);
+
+  jsPsych.run(timeline);
+</script>
+</html>
