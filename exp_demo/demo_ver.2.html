@@ -2,278 +2,573 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>ver2_all_3afc</title>
+  <title>Liaci/Verdade-style Ver.2 All 3AFC Keyboard</title>
 
   <script src="https://unpkg.com/jspsych@8.2.3"></script>
   <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
   <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
 
   <style>
-    html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      background-color: rgb(166,166,166);
+    html,
+    .response-cue {
+  position: absolute;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  color: black;
+  background-color: rgba(166, 166, 166, 0.85);
+  padding: 4px 8px;
+  border-radius: 6px;
+  user-select: none;
+}
+
+.response-cue-neutral {
+  left: 50%;
+  top: calc(50% - 112.5px - 48px);
+  transform: translateX(-50%);
+}
+
+.response-cue-angry {
+  right: calc(50% + 150.5px + 36px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.response-cue-happy {
+  left: calc(50% + 150.5px + 36px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.check-feedback {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 112.5px + 12px);
+  transform: translateX(-50%);
+  height: 32px;
+  font-size: 30px;
+  font-weight: bold;
+  color: #2b6cb0;
+  line-height: 32px;
+}
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgb(166, 166, 166);
     }
-    .jspsych-display-element { background-color: rgb(166,166,166); }
-    #jspsych-content { max-width: none; }
-    .screen {
-      width: 100vw; height: 100vh;
-      display: flex; justify-content: center; align-items: center;
-      background-color: rgb(166,166,166);
-      font-family: Arial, sans-serif; color: black;
-      text-align: center;
+
+    .jspsych-display-element {
+      background-color: rgb(166, 166, 166);
     }
-    .box {
-      max-width: 900px; line-height: 1.7; font-size: 20px;
-      padding: 20px 30px;
+
+    #jspsych-content {
+      max-width: none;
     }
-    .stim-img {
-      width: 301px; height: 225px;
-      object-fit: contain; display: block;
-    }
-    .choice-wrapper {
+
+    .instruction-screen {
+      width: 100vw;
+      height: 100vh;
+      background-color: rgb(166, 166, 166);
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      gap: 18px;
+      text-align: center;
+      color: black;
+      font-family: Arial, sans-serif;
     }
-    .choice-label {
-      font-size: 18px;
-      margin-top: 6px;
+
+    .instruction-box {
+      max-width: 860px;
+      line-height: 1.7;
+      font-size: 20px;
+      padding: 24px 32px;
+    }
+
+    .task-screen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgb(166, 166, 166);
+      overflow: hidden;
+    }
+
+    .stim-box {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 301px;
+      height: 225px;
+      transform: translate(-50%, -50%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .stim-img {
+      width: 301px;
+      height: 225px;
+      object-fit: contain;
+      display: block;
     }
   </style>
 </head>
+
 <body></body>
 
 <script>
+  // =========================================================
+  // 1. jsPsych 초기화
+  // =========================================================
   const jsPsych = initJsPsych({
     show_progress_bar: true,
     on_finish: function() {
       jsPsych.data.displayData();
-      // jsPsych.data.get().localSave('csv', 'ver2_all_3afc_data.csv');
+
+      // 데이터를 CSV로 저장하려면 아래 줄의 주석을 해제하세요.
+      // jsPsych.data.get().localSave('csv', 'ver2_all_3afc_keyboard_data.csv');
     }
   });
 
-  // =========================
-  // 기본 설정
-  // =========================
-  const N_SETS = 10;
-  const REPS = 6;
 
+  // =========================================================
+  // 2. 기본 설정
+  // =========================================================
+  const IMAGE_ROOT = 'images_31';
+  const N_SETS = 10;
+  const FRAME_NUMBER_DIGITS = 2;
+
+  // 3 order condition × 10 set × 11 emotion level × 6 rep = 1980 static trials
+  const REPS = 6;
+  const STATIC_TRIAL_DURATION_MS = 2000;
+  const BREAK_EVERY_N_TRIALS = 110;
+
+  // Verdade 방식: right = positive/happy, down = neutral, left = negative/angry
+  const RESPONSE_KEYS_3AFC = ['ArrowLeft', 'ArrowUp', 'ArrowRight'];
+
+  function keyToResponseLabel(key) {
+   if (!key) return null;
+
+  const normalizedKey = String(key).toLowerCase();
+
+   if (normalizedKey === 'arrowleft') return 'angry';
+   if (normalizedKey === 'arrowup') return 'neutral';
+   if (normalizedKey === 'arrowright') return 'happy';
+
+   return null;
+   }
+
+  // 31장 중 20% 간격으로 선택한 11장
   const SELECTED_LEVELS = [
-    { frame: 1,  category: "happy",   percent: 100, label: "happy_100" },
-    { frame: 4,  category: "happy",   percent: 80,  label: "happy_80" },
-    { frame: 7,  category: "happy",   percent: 60,  label: "happy_60" },
-    { frame: 10, category: "happy",   percent: 40,  label: "happy_40" },
-    { frame: 13, category: "happy",   percent: 20,  label: "happy_20" },
-    { frame: 16, category: "neutral", percent: 0,   label: "neutral_0" },
-    { frame: 19, category: "angry",   percent: 20,  label: "angry_20" },
-    { frame: 22, category: "angry",   percent: 40,  label: "angry_40" },
-    { frame: 25, category: "angry",   percent: 60,  label: "angry_60" },
-    { frame: 28, category: "angry",   percent: 80,  label: "angry_80" },
-    { frame: 31, category: "angry",   percent: 100, label: "angry_100" }
+    { frame: 1,  true_category: 'happy',   emotion_percent: 100, emotion_level_label: 'happy_100' },
+    { frame: 4,  true_category: 'happy',   emotion_percent: 80,  emotion_level_label: 'happy_80' },
+    { frame: 7,  true_category: 'happy',   emotion_percent: 60,  emotion_level_label: 'happy_60' },
+    { frame: 10, true_category: 'happy',   emotion_percent: 40,  emotion_level_label: 'happy_40' },
+    { frame: 13, true_category: 'happy',   emotion_percent: 20,  emotion_level_label: 'happy_20' },
+    { frame: 16, true_category: 'neutral', emotion_percent: 0,   emotion_level_label: 'happy_0_neutral' },
+    { frame: 19, true_category: 'angry',   emotion_percent: 20,  emotion_level_label: 'angry_20' },
+    { frame: 22, true_category: 'angry',   emotion_percent: 40,  emotion_level_label: 'angry_40' },
+    { frame: 25, true_category: 'angry',   emotion_percent: 60,  emotion_level_label: 'angry_60' },
+    { frame: 28, true_category: 'angry',   emotion_percent: 80,  emotion_level_label: 'angry_80' },
+    { frame: 31, true_category: 'angry',   emotion_percent: 100, emotion_level_label: 'angry_100' }
   ];
 
-  const STIMULUS_SETS = Array.from({ length: N_SETS }, (_, i) => {
-    const setNumber = String(i + 1).padStart(2, "0");
+  // set01 ~ set10 자동 생성
+  const STIMULUS_SETS = Array.from({ length: N_SETS }, (_, index) => {
+    const setNumberText = String(index + 1).padStart(2, '0');
     return {
-      set_id: i + 1,
-      set_name: `set${setNumber}`,
-      stim_path: `images/set${setNumber}/`
+      set_id: index + 1,
+      set_name: `set${setNumberText}`,
+      stim_path: `${IMAGE_ROOT}/set${setNumberText}/`
     };
   });
 
-  function framePath(stimPath, frameNum) {
-    return `${stimPath}frame_${String(frameNum).padStart(2, "0")}.png`;
+  function framePath(stimPath, frameNumber) {
+    const frameText = String(frameNumber).padStart(FRAME_NUMBER_DIGITS, '0');
+    return `${stimPath}frame_${frameText}.png`;
   }
 
+
+  // =========================================================
+  // 3. Preload 이미지 목록 만들기
+  // =========================================================
   const preloadImages = [];
-  STIMULUS_SETS.forEach(setObj => {
+
+  STIMULUS_SETS.forEach(stimulusSet => {
     SELECTED_LEVELS.forEach(level => {
-      preloadImages.push(framePath(setObj.stim_path, level.frame));
+      preloadImages.push(framePath(stimulusSet.stim_path, level.frame));
     });
   });
 
   const preload = {
     type: jsPsychPreload,
     images: [...new Set(preloadImages)],
-    message: "이미지를 불러오는 중입니다. 잠시만 기다려 주세요.",
-    error_message: "이미지를 불러오지 못했습니다. 경로/파일명을 확인해 주세요.",
+    message: '이미지를 불러오는 중입니다. 잠시만 기다려 주세요.',
+    error_message: '이미지를 불러오지 못했습니다. images_31/set01/frame_01.png 형식의 경로와 파일명을 확인해 주세요.',
     continue_after_error: false
   };
 
-  function textScreen(html) {
+
+  // =========================================================
+  // 4. 안내문 / 휴식 화면
+  // =========================================================
+  function makeTextScreen(html) {
     return {
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: `<div class="screen"><div class="box">${html}</div></div>`
+      stimulus: `
+        <div class="instruction-screen">
+          <div class="instruction-box">
+            ${html}
+          </div>
+        </div>
+      `
     };
   }
 
   function makeBreakScreen(text) {
-    return textScreen(`
+    return makeTextScreen(`
       <p>${text}</p>
       <p>잠시 쉬신 뒤 아무 키나 누르면 계속 진행됩니다.</p>
     `);
   }
 
-  const intro = textScreen(`
-    <h2>실험 안내</h2>
+  const intro = makeTextScreen(`
+    <h2>표정 분류 과제</h2>
     <p>한 장의 얼굴 이미지가 제시됩니다.</p>
-    <p>각 이미지를 보고 <strong>happy / neutral / angry</strong> 중 하나를 선택하세요.</p>
+    <p>각 이미지를 보고 가장 가깝다고 느껴지는 표정을 키보드로 응답하세요.</p>
+    <br>
+    <p><strong>왼쪽 화살표(←)</strong>: angry</p>
+    <p><strong>위쪽 화살표(↑)</strong>: neutral</p>
+    <p><strong>오른쪽 화살표(→)</strong>: happy</p>
+    <br>
+    <p>각 이미지는 2초 동안 제시되며, 
+    <p>이미지가 제시되는 동안 화면에 응답키 안내가 함께 표시됩니다.</p>
+    <p>응답이 기록되면 이미지 아래에 파란색 체크 표시가 잠깐 나타납니다.</p>
+    <p>응답 후에도 이미지는 정해진 시간 동안 제시된 뒤 자동으로 다음 trial로 넘어갑니다.</p>
     <br>
     <p>아무 키나 누르면 시작합니다.</p>
   `);
 
-  function makeBlockIntro(title, desc) {
-    return textScreen(`
+  function makeBlockIntro(title, description) {
+    return makeTextScreen(`
       <h2>${title}</h2>
-      <p>${desc}</p>
+      <p>${description}</p>
+      <br>
+      <p><strong>오른쪽 화살표(→)</strong>: happy</p>
+      <p><strong>아래쪽 화살표(↓)</strong>: neutral</p>
+      <p><strong>왼쪽 화살표(←)</strong>: angry</p>
       <br>
       <p>아무 키나 누르면 시작합니다.</p>
     `);
   }
 
-  const responseOptions = ["happy", "neutral", "angry"];
-  const responseButtons = ["happy", "neutral", "angry"];
+  const endScreen = makeTextScreen(`
+    <h2>실험이 완료되었습니다.</h2>
+    <p>응답해 주셔서 감사합니다.</p>
+  `);
 
-  function make3AFCTrial(info) {
-    return {
-      type: jsPsychHtmlButtonResponse,
-      stimulus: `
-        <div class="screen">
-          <div class="choice-wrapper">
-            <img src="${info.img}" class="stim-img">
-            <div class="choice-label">이 표정은 무엇에 가깝습니까?</div>
-          </div>
-        </div>
-      `,
-      choices: responseButtons,
-      data: {
-        block: "3afc",
-        order_condition: info.order_condition,
-        set_id: info.set_id,
-        set_name: info.set_name,
-        repeat: info.repeat,
-        frame_number: info.frame,
-        true_category: info.category,
-        intensity_percent: info.percent,
-        level_label: info.level_label,
-        sequence_position: info.sequence_position
-      },
-      on_finish: function(data) {
-        data.response_label = responseOptions[data.response];
-        data.correct = data.response_label === data.true_category;
-      }
-    };
+
+  // =========================================================
+  // 5. Static 3AFC trial 만들기
+  // =========================================================
+ class Static3AFCKeyboardPlugin {
+  static info = {
+    name: 'static-3afc-keyboard',
+    parameters: {}
+  };
+
+  constructor(jsPsych) {
+    this.jsPsych = jsPsych;
   }
 
-  // =========================
-  // ordered block 생성
-  // =========================
+  trial(display_element, trial) {
+    const imagePath = trial.image_path;
+    const trialDuration = trial.trial_duration ?? 2000;
+    const responseKeys = trial.choices ?? ['ArrowLeft', 'ArrowUp', 'ArrowRight'];
+    const feedbackDuration = trial.feedback_duration ?? 250;
+
+    let responded = false;
+    let responseKey = null;
+    let responseLabel = null;
+    let responseRt = null;
+    let showCheck = false;
+
+    const trialStartTime = performance.now();
+
+    let keyboardListener = null;
+    let trialTimeoutId = null;
+    let feedbackTimeoutId = null;
+
+    function checkHtml() {
+      return showCheck
+        ? `<div class="check-feedback">✓</div>`
+        : `<div class="check-feedback"></div>`;
+    }
+
+    function renderTrial() {
+      display_element.innerHTML = `
+        <div class="task-screen">
+          <div class="response-cue response-cue-neutral">↑ neutral</div>
+          <div class="response-cue response-cue-angry">← angry</div>
+          <div class="response-cue response-cue-happy">happy →</div>
+
+          <div class="stim-box">
+            <img src="${imagePath}" class="stim-img">
+          </div>
+
+          ${checkHtml()}
+        </div>
+      `;
+    }
+
+    function flashCheck() {
+      showCheck = true;
+      renderTrial();
+
+      if (feedbackTimeoutId) {
+        clearTimeout(feedbackTimeoutId);
+      }
+
+      feedbackTimeoutId = setTimeout(() => {
+        showCheck = false;
+        renderTrial();
+      }, feedbackDuration);
+    }
+
+    const endTrial = () => {
+      if (keyboardListener) {
+        this.jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
+      }
+
+      if (trialTimeoutId) {
+        clearTimeout(trialTimeoutId);
+      }
+
+      if (feedbackTimeoutId) {
+        clearTimeout(feedbackTimeoutId);
+      }
+
+      display_element.innerHTML = '';
+
+      const trueCategory = trial.data?.true_category ?? null;
+
+      this.jsPsych.finishTrial({
+        ...trial.data,
+
+        response_key: responseKey,
+        response_label: responseLabel,
+        rt: responseRt,
+        responded: responded,
+        correct: responseLabel === null ? null : responseLabel === trueCategory,
+
+        key_mapping: 'ArrowLeft=angry; ArrowUp=neutral; ArrowRight=happy',
+        stimulus_duration_ms: trialDuration
+      });
+    };
+
+    keyboardListener = this.jsPsych.pluginAPI.getKeyboardResponse({
+      callback_function: (info) => {
+        if (responded) return;
+
+        responded = true;
+        responseKey = info.key;
+        responseLabel = keyToResponseLabel(info.key);
+        responseRt = performance.now() - trialStartTime;
+
+        flashCheck();
+      },
+      valid_responses: responseKeys,
+      rt_method: 'performance',
+      persist: true,
+      allow_held_key: false
+    });
+
+    renderTrial();
+
+    trialTimeoutId = setTimeout(() => {
+      endTrial();
+    }, trialDuration);
+  }
+}
+ 
+function makeStatic3AFCTrial(condition) {
+  return {
+    type: Static3AFCKeyboardPlugin,
+
+    image_path: condition.image_path,
+    choices: RESPONSE_KEYS_3AFC,
+    trial_duration: STATIC_TRIAL_DURATION_MS,
+    feedback_duration: 250,
+
+    data: {
+      block: 'all_3afc',
+      order_condition: condition.order_condition,
+      sequence_id: condition.sequence_id,
+      sequence_position: condition.sequence_position,
+
+      trial_id: condition.trial_id,
+      set_id: condition.set_id,
+      set_name: condition.set_name,
+      stim_path: condition.stim_path,
+      repeat: condition.repeat,
+
+      frame_number: condition.frame_number,
+      image_path: condition.image_path,
+      true_category: condition.true_category,
+      emotion_percent: condition.emotion_percent,
+      emotion_level_label: condition.emotion_level_label
+    }
+  };
+}
+
+
+  // =========================================================
+  // 6. Ordered 조건 만들기
+  //    한 set 안에서 11개 emotion level이 순서대로 제시됨
+  // =========================================================
   function buildOrderedTrials(orderCondition) {
     const trials = [];
+    let trialCounter = 1;
+    let sequenceCounter = 1;
 
     for (let rep = 1; rep <= REPS; rep++) {
-      const setOrder = jsPsych.randomization.shuffle([...STIMULUS_SETS]);
+      const shuffledSets = jsPsych.randomization.shuffle([...STIMULUS_SETS]);
 
-      setOrder.forEach(setObj => {
-        let levelList = [...SELECTED_LEVELS];
+      shuffledSets.forEach(stimulusSet => {
+        let orderedLevels = [...SELECTED_LEVELS];
 
-        if (orderCondition === "angry_to_happy") {
-          levelList = [...levelList].reverse();
+        if (orderCondition === 'angry_to_happy') {
+          orderedLevels = [...orderedLevels].reverse();
         }
 
-        levelList.forEach((level, idx) => {
-          trials.push(make3AFCTrial({
+        orderedLevels.forEach((level, index) => {
+          const condition = {
             order_condition: orderCondition,
-            set_id: setObj.set_id,
-            set_name: setObj.set_name,
+            sequence_id: `${orderCondition}_rep${rep}_${stimulusSet.set_name}_${sequenceCounter}`,
+            sequence_position: index + 1,
+
+            trial_id: `${orderCondition}_${trialCounter}`,
+            set_id: stimulusSet.set_id,
+            set_name: stimulusSet.set_name,
+            stim_path: stimulusSet.stim_path,
             repeat: rep,
-            frame: level.frame,
-            category: level.category,
-            percent: level.percent,
-            level_label: level.label,
-            sequence_position: idx + 1,
-            img: framePath(setObj.stim_path, level.frame)
-          }));
+
+            frame_number: level.frame,
+            image_path: framePath(stimulusSet.stim_path, level.frame),
+            true_category: level.true_category,
+            emotion_percent: level.emotion_percent,
+            emotion_level_label: level.emotion_level_label
+          };
+
+          trials.push(makeStatic3AFCTrial(condition));
+          trialCounter++;
         });
+
+        sequenceCounter++;
       });
     }
 
     return trials;
   }
 
-  // =========================
-  // random block 생성
-  // =========================
+
+  // =========================================================
+  // 7. Random 조건 만들기
+  //    10 set × 11 emotion level × 6 rep 전체를 무작위로 섞음
+  // =========================================================
   function buildRandomTrials() {
-    const trials = [];
+    const conditions = [];
+    let trialCounter = 1;
 
-    for (let rep = 1; rep <= REPS; rep++) {
-      const setOrder = jsPsych.randomization.shuffle([...STIMULUS_SETS]);
+    STIMULUS_SETS.forEach(stimulusSet => {
+      SELECTED_LEVELS.forEach(level => {
+        for (let rep = 1; rep <= REPS; rep++) {
+          conditions.push({
+            order_condition: 'random',
+            sequence_id: null,
+            sequence_position: null,
 
-      setOrder.forEach(setObj => {
-        const shuffledLevels = jsPsych.randomization.shuffle([...SELECTED_LEVELS]);
-
-        shuffledLevels.forEach((level, idx) => {
-          trials.push(make3AFCTrial({
-            order_condition: "random",
-            set_id: setObj.set_id,
-            set_name: setObj.set_name,
+            trial_id: `random_${trialCounter}`,
+            set_id: stimulusSet.set_id,
+            set_name: stimulusSet.set_name,
+            stim_path: stimulusSet.stim_path,
             repeat: rep,
-            frame: level.frame,
-            category: level.category,
-            percent: level.percent,
-            level_label: level.label,
-            sequence_position: idx + 1,
-            img: framePath(setObj.stim_path, level.frame)
-          }));
-        });
-      });
-    }
 
-    return trials;
+            frame_number: level.frame,
+            image_path: framePath(stimulusSet.stim_path, level.frame),
+            true_category: level.true_category,
+            emotion_percent: level.emotion_percent,
+            emotion_level_label: level.emotion_level_label
+          });
+
+          trialCounter++;
+        }
+      });
+    });
+
+    return jsPsych.randomization.shuffle(conditions).map(makeStatic3AFCTrial);
   }
 
-  const haTrials = buildOrderedTrials("happy_to_angry");
-  const ahTrials = buildOrderedTrials("angry_to_happy");
+
+  // =========================================================
+  // 8. Timeline 만들기
+  // =========================================================
+  const happyToAngryTrials = buildOrderedTrials('happy_to_angry');
+  const angryToHappyTrials = buildOrderedTrials('angry_to_happy');
   const randomTrials = buildRandomTrials();
 
-  function appendWithBreaks(targetTimeline, trials, everyN, label) {
+  function appendTrialsWithBreaks(timeline, trials, breakEveryNTrials, blockLabel) {
     trials.forEach((trial, index) => {
-      targetTimeline.push(trial);
-      if ((index + 1) % everyN === 0 && index < trials.length - 1) {
-        targetTimeline.push(
-          makeBreakScreen(`${label} block 진행 중입니다. (${index + 1} / ${trials.length})`)
+      timeline.push(trial);
+
+      const trialNumber = index + 1;
+      const isBreakPoint = trialNumber % breakEveryNTrials === 0;
+      const isLastTrial = trialNumber === trials.length;
+
+      if (isBreakPoint && !isLastTrial) {
+        timeline.push(
+          makeBreakScreen(`${blockLabel} 진행 중입니다. (${trialNumber} / ${trials.length})`)
         );
       }
     });
   }
 
-  // =========================
-  // timeline
-  // =========================
   const timeline = [];
+
   timeline.push(preload);
   timeline.push(intro);
 
-  timeline.push(makeBlockIntro("Block 1", "happy → angry ordered condition"));
-  appendWithBreaks(timeline, haTrials, 110, "happy_to_angry");
+  timeline.push(makeBlockIntro(
+    'Block 1: happy → angry ordered',
+    'happy 100%에서 시작해 neutral을 지나 angry 100%로 이어지는 순서입니다.'
+  ));
+  appendTrialsWithBreaks(timeline, happyToAngryTrials, BREAK_EVERY_N_TRIALS, 'happy → angry ordered block');
 
-  timeline.push(makeBreakScreen("Block 1이 끝났습니다."));
-  timeline.push(makeBlockIntro("Block 2", "angry → happy ordered condition"));
-  appendWithBreaks(timeline, ahTrials, 110, "angry_to_happy");
+  timeline.push(makeBreakScreen('Block 1이 끝났습니다.'));
 
-  timeline.push(makeBreakScreen("Block 2가 끝났습니다."));
-  timeline.push(makeBlockIntro("Block 3", "random condition"));
-  appendWithBreaks(timeline, randomTrials, 110, "random");
+  timeline.push(makeBlockIntro(
+    'Block 2: angry → happy ordered',
+    'angry 100%에서 시작해 neutral을 지나 happy 100%로 이어지는 순서입니다.'
+  ));
+  appendTrialsWithBreaks(timeline, angryToHappyTrials, BREAK_EVERY_N_TRIALS, 'angry → happy ordered block');
 
-  timeline.push(textScreen(`
-    <h2>실험이 완료되었습니다.</h2>
-    <p>응답해 주셔서 감사합니다.</p>
-  `));
+  timeline.push(makeBreakScreen('Block 2가 끝났습니다.'));
 
+  timeline.push(makeBlockIntro(
+    'Block 3: random',
+    '동일한 emotion level 이미지들이 무작위 순서로 제시됩니다.'
+  ));
+  appendTrialsWithBreaks(timeline, randomTrials, BREAK_EVERY_N_TRIALS, 'random block');
+
+  timeline.push(endScreen);
+
+
+  // =========================================================
+  // 9. 실험 실행
+  // =========================================================
   jsPsych.run(timeline);
 </script>
 </html>
