@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Ver.1 Dynamic Response Check</title>
+
+  <script src="https://unpkg.com/jspsych@8.2.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgb(166, 166, 166);
+    }
+
+    .jspsych-display-element {
+      background-color: rgb(166, 166, 166);
+    }
+
+    #jspsych-content {
+      max-width: none;
+    }
+
+    .instruction-screen {
+      width: 100vw;
+      height: 100vh;
+      background-color: rgb(166, 166, 166);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: black;
+      font-family: Arial, sans-serif;
+    }
+
+    .instruction-box {
+      max-width: 900px;
+      line-height: 1.7;
+      font-size: 20px;
+      padding: 24px 32px;
+    }
+
+    .task-screen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgb(166, 166, 166);
+      overflow: hidden;
+    }
+
+    .stim-box {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 301px;
+      height: 225px;
+      transform: translate(-50%, -50%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .stim-img {
+      width: 301px;
+      height: 225px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .fixation-panel {
+      width: 301px;
+      height: 225px;
+      background-color: rgb(166, 166, 166);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .fixation-cross {
+      font-size: 28px;
+      color: white;
+      font-weight: normal;
+      line-height: 1;
+    }
+
+    .check-feedback {
+      position: absolute;
+      left: 50%;
+      top: calc(50% + 112.5px + 12px);
+      transform: translateX(-50%);
+      height: 32px;
+      font-size: 30px;
+      font-weight: bold;
+      color: #2b6cb0;
+      line-height: 32px;
+    }
+  </style>
+</head>
+
+<body></body>
+
+<script>
+  const jsPsych = initJsPsych({
+    show_progress_bar: true,
+    on_finish: function() {
+      jsPsych.data.displayData();
+    }
+  });
+
+  const IMAGE_ROOT = 'images_31';
+  const TEST_STIM_PATH = `${IMAGE_ROOT}/set01/`;
+
+  const N_FRAMES = 31;
+  const FRAME_NUMBER_DIGITS = 2;
+
+  const FIXATION_DURATION_MS = 200;
+  const IMAGE_DURATION_MS = 300;
+
+  function framePath(stimPath, frameNumber) {
+    const frameText = String(frameNumber).padStart(FRAME_NUMBER_DIGITS, '0');
+    return `${stimPath}frame_${frameText}.png`;
+  }
+
+  function makeDynamicFrames(stimPath, directionLabel) {
+    const frames = [];
+
+    if (directionLabel === 'happy_to_angry') {
+      for (let frameNumber = 1; frameNumber <= N_FRAMES; frameNumber++) {
+        frames.push({
+          src: framePath(stimPath, frameNumber),
+          file_frame_number: frameNumber
+        });
+      }
+    } else {
+      for (let frameNumber = N_FRAMES; frameNumber >= 1; frameNumber--) {
+        frames.push({
+          src: framePath(stimPath, frameNumber),
+          file_frame_number: frameNumber
+        });
+      }
+    }
+
+    return frames;
+  }
+
+  const preloadImages = [];
+
+  for (let frameNumber = 1; frameNumber <= N_FRAMES; frameNumber++) {
+    preloadImages.push(framePath(TEST_STIM_PATH, frameNumber));
+  }
+
+  const preload = {
+    type: jsPsychPreload,
+    images: preloadImages,
+    message: '이미지를 불러오는 중입니다.',
+    error_message: '이미지를 불러오지 못했습니다. images_31/set01/frame_01.png 경로를 확인하세요.',
+    continue_after_error: false
+  };
+
+  class TwoResponseSequencePlugin {
+    static info = {
+      name: 'two-response-sequence',
+      parameters: {}
+    };
+
+    constructor(jsPsych) {
+      this.jsPsych = jsPsych;
+    }
+
+    trial(display_element, trial) {
+      const frames = trial.frames;
+      const fixationDuration = trial.fixation_duration ?? 200;
+      const imageDuration = trial.image_duration ?? 300;
+      const responseKey = trial.response_key ?? ' ';
+      const feedbackDuration = trial.feedback_duration ?? 150;
+
+      let frameIndex = 0;
+      let currentFrameInfo = frames[0];
+      let currentSequencePosition = 1;
+      let showCheck = false;
+
+      let firstResponseSequencePosition = null;
+      let firstResponseFileFrame = null;
+      let firstResponseRt = null;
+
+      let secondResponseSequencePosition = null;
+      let secondResponseFileFrame = null;
+      let secondResponseRt = null;
+
+      const trialStartTime = performance.now();
+
+      let timeoutId = null;
+      let feedbackTimeoutId = null;
+      let keyboardListener = null;
+
+      function checkHtml() {
+        return showCheck
+          ? `<div class="check-feedback">✓</div>`
+          : `<div class="check-feedback"></div>`;
+      }
+
+      function renderFrame(frameInfo) {
+        currentFrameInfo = frameInfo;
+
+        display_element.innerHTML = `
+          <div class="task-screen">
+            <div class="stim-box">
+              <img src="${frameInfo.src}" class="stim-img">
+            </div>
+            ${checkHtml()}
+          </div>
+        `;
+      }
+
+      function renderFixation() {
+        display_element.innerHTML = `
+          <div class="task-screen">
+            <div class="stim-box">
+              <div class="fixation-panel">
+                <div class="fixation-cross">+</div>
+              </div>
+            </div>
+            ${checkHtml()}
+          </div>
+        `;
+      }
+
+      function flashCheck() {
+        showCheck = true;
+        renderFrame(currentFrameInfo);
+
+        if (feedbackTimeoutId) {
+          clearTimeout(feedbackTimeoutId);
+        }
+
+        feedbackTimeoutId = setTimeout(() => {
+          showCheck = false;
+          renderFrame(currentFrameInfo);
+        }, feedbackDuration);
+      }
+
+      const endTrial = () => {
+        if (keyboardListener) {
+          this.jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
+        }
+
+        if (timeoutId) clearTimeout(timeoutId);
+        if (feedbackTimeoutId) clearTimeout(feedbackTimeoutId);
+
+        display_element.innerHTML = '';
+
+        this.jsPsych.finishTrial({
+          ...trial.data,
+
+          task: 'dynamic_two_response_check',
+          response_key: responseKey,
+
+          first_response_sequence_position: firstResponseSequencePosition,
+          first_response_file_frame: firstResponseFileFrame,
+          first_response_rt: firstResponseRt,
+
+          second_response_sequence_position: secondResponseSequencePosition,
+          second_response_file_frame: secondResponseFileFrame,
+          second_response_rt: secondResponseRt,
+
+          responded_once: firstResponseSequencePosition !== null,
+          responded_twice: secondResponseSequencePosition !== null,
+
+          fixation_duration_ms: fixationDuration,
+          image_duration_ms: imageDuration,
+          total_frames_shown: frames.length
+        });
+      };
+
+      keyboardListener = this.jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: () => {
+          const currentRt = performance.now() - trialStartTime;
+
+          if (firstResponseSequencePosition === null) {
+            firstResponseSequencePosition = currentSequencePosition;
+            firstResponseFileFrame = currentFrameInfo.file_frame_number;
+            firstResponseRt = currentRt;
+            flashCheck();
+          } else if (secondResponseSequencePosition === null) {
+            secondResponseSequencePosition = currentSequencePosition;
+            secondResponseFileFrame = currentFrameInfo.file_frame_number;
+            secondResponseRt = currentRt;
+            flashCheck();
+          }
+        },
+        valid_responses: [responseKey],
+        rt_method: 'performance',
+        persist: true,
+        allow_held_key: false
+      });
+
+      const runStep = () => {
+        if (frameIndex >= frames.length) {
+          endTrial();
+          return;
+        }
+
+        currentFrameInfo = frames[frameIndex];
+        currentSequencePosition = frameIndex + 1;
+
+        renderFrame(currentFrameInfo);
+
+        timeoutId = setTimeout(() => {
+          renderFixation();
+
+          timeoutId = setTimeout(() => {
+            frameIndex++;
+            runStep();
+          }, fixationDuration);
+
+        }, imageDuration);
+      };
+
+      runStep();
+    }
+  }
+
+  function makeTextScreen(html) {
+    return {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <div class="instruction-screen">
+          <div class="instruction-box">
+            ${html}
+          </div>
+        </div>
+      `
+    };
+  }
+
+  const intro = makeTextScreen(`
+    <h2>ver.1 응답 기록 확인용</h2>
+
+    <p>이 코드는 <strong>set01 하나</strong>만 사용해서 dynamic 응답 기록을 확인하는 버전입니다.</p>
+
+    <br>
+
+    <p>얼굴 표정이 연속적으로 변화합니다.</p>
+    <p>스페이스바를 두 번 눌러보세요.</p>
+
+    <br>
+
+    <p>1번째 응답: 얼굴이 무표정에 가까워졌다고 느끼는 순간</p>
+    <p>2번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+
+    <br>
+
+    <p>응답이 기록되면 이미지 아래에 파란 체크 표시가 잠깐 나타납니다.</p>
+    <p>끝나면 응답 데이터가 화면에 표시됩니다.</p>
+
+    <br>
+
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  const endScreen = makeTextScreen(`
+    <h2>확인이 끝났습니다.</h2>
+    <p>아무 키나 누르면 응답 데이터가 화면에 표시됩니다.</p>
+  `);
+
+  const dynamicTrial = {
+    type: TwoResponseSequencePlugin,
+    frames: makeDynamicFrames(TEST_STIM_PATH, 'happy_to_angry'),
+    fixation_duration: FIXATION_DURATION_MS,
+    image_duration: IMAGE_DURATION_MS,
+    response_key: ' ',
+    feedback_duration: 150,
+    data: {
+      block: 'dynamic_check',
+      trial_id: 'dynamic_check_1',
+      set_id: 1,
+      set_name: 'set01',
+      stim_path: TEST_STIM_PATH,
+      direction_label: 'happy_to_angry',
+      repeat: 1,
+      n_frames: N_FRAMES,
+      objective_neutral_sequence_position: 16,
+      objective_neutral_file_frame: 16
+    }
+  };
+
+  const timeline = [];
+
+  timeline.push(preload);
+  timeline.push(intro);
+  timeline.push(dynamicTrial);
+  timeline.push(endScreen);
+
+  jsPsych.run(timeline);
+</script>
+</html>
