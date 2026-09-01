@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Ver.1 Dynamic + Random 3AFC (Official Plugins)</title>
+
+  <script src="https://unpkg.com/jspsych@8.2.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.1.0"></script>
+  <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
+  <script src="https://unpkg.com/@jspsych/plugin-survey-text@2.1.0"></script>
+
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background-color: rgb(166, 166, 166); overflow: hidden;
+    }
+    .jspsych-display-element { background-color: rgb(166, 166, 166); }
+    #jspsych-content { max-width: none; }
+
+    .instruction-screen {
+      width: 100vw; height: 100vh; background-color: rgb(166, 166, 166);
+      display: flex; justify-content: center; align-items: center;
+      text-align: center; color: black; font-family: Arial, sans-serif;
+    }
+    .instruction-box { max-width: 940px; line-height: 1.7; font-size: 20px; padding: 24px 32px; }
+    .retry-warning {
+      background: #fdecea; border: 1px solid #f5c2c0; border-radius: 8px;
+      padding: 14px 18px; margin-bottom: 18px; text-align: left;
+    }
+
+    .stim-img { width: 260px; height: 260px; object-fit: contain; }
+    .fixation-cross {
+      width: 260px; height: 260px; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: white; margin: 0 auto;
+    }
+    .iti-screen { width: 260px; height: 260px; margin: 0 auto; }
+
+    .check-feedback-flash {
+      position: fixed;
+      left: 50%;
+      top: calc(50% + 150px);
+      transform: translateX(-50%);
+      font-size: 30px;
+      font-weight: bold;
+      color: #2b6cb0;
+      display: none;
+      pointer-events: none;
+    }
+
+    .response-cue {
+      position: absolute; font-family: Arial, sans-serif; font-size: 20px; font-weight: bold;
+      color: black; background-color: rgba(166, 166, 166, 0.85); padding: 4px 8px; border-radius: 6px;
+    }
+    .response-cue-neutral { left: 50%; top: calc(50% - 130px - 48px); transform: translateX(-50%); }
+    .response-cue-angry  { right: calc(50% + 130px + 36px); top: 50%; transform: translateY(-50%); }
+    .response-cue-happy  { left: calc(50% + 130px + 36px); top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+
+<body></body>
+
+<script>
+  const jsPsych = initJsPsych({
+    show_progress_bar: true
+  });
+
+  // =========================================================
+  // 1. 기본 설정
+  // =========================================================
+  const IMAGE_ROOT = 'images_31';
+  const N_SETS = 10;
+  const N_FRAMES = 31;
+  const FRAME_NUMBER_DIGITS = 2;
+
+  // dynamic block: 시퀀스 시작 전 ITI -> [프레임(image) -> fixation] 반복
+  const ITI_DURATION_MS = 700;          // 시행(시퀀스) 시작 전 공백 (요청 5번)
+  const FIXATION_DURATION_MS = 200;     // 프레임 사이 ISI
+  const IMAGE_DURATION_MS = 300;        // 프레임 노출 시간
+  const DYNAMIC_REPS = 4;
+  const RANDOM_REPS = 3;
+  const DYNAMIC_BREAK_EVERY_N_SEQUENCES = 20;
+  const RANDOM_BREAK_EVERY_N_TRIALS = 110;
+
+  const RESPONSE_KEYS_3AFC = ['ArrowLeft', 'ArrowUp', 'ArrowRight'];
+
+  function keyToResponseLabel(key) {
+    if (!key) return null;
+    const k = String(key).toLowerCase();
+    if (k === 'arrowleft') return 'angry';
+    if (k === 'arrowup') return 'neutral';
+    if (k === 'arrowright') return 'happy';
+    return null;
+  }
+
+
+  function attachFlashFeedback(trialObject, responseKeys) {
+    let listenerId = null;
+    let hideTimeoutId = null;
+
+    const originalOnLoad = trialObject.on_load;
+    trialObject.on_load = function() {
+      if (originalOnLoad) originalOnLoad();
+
+      const displayEl = jsPsych.getDisplayElement();
+      const feedbackEl = document.createElement('div');
+      feedbackEl.className = 'check-feedback-flash';
+      feedbackEl.textContent = '✓';
+      displayEl.appendChild(feedbackEl);
+
+      listenerId = jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: function() {
+          feedbackEl.style.display = 'block';
+          if (hideTimeoutId) clearTimeout(hideTimeoutId);
+          hideTimeoutId = setTimeout(function() {
+            feedbackEl.style.display = 'none';
+          }, 150);
+        },
+        valid_responses: responseKeys,
+        rt_method: 'performance',
+        persist: true,
+        allow_held_key: false
+      });
+    };
+
+    const originalOnFinish = trialObject.on_finish;
+    trialObject.on_finish = function(data) {
+      if (listenerId) jsPsych.pluginAPI.cancelKeyboardResponse(listenerId);
+      if (hideTimeoutId) clearTimeout(hideTimeoutId);
+      if (originalOnFinish) originalOnFinish(data);
+    };
+
+    return trialObject;
+  }
+
+  const SELECTED_LEVELS = [
+    { frame: 1,  true_category: 'happy',   emotion_percent: 100, emotion_level_label: 'happy_100' },
+    { frame: 4,  true_category: 'happy',   emotion_percent: 80,  emotion_level_label: 'happy_80' },
+    { frame: 7,  true_category: 'happy',   emotion_percent: 60,  emotion_level_label: 'happy_60' },
+    { frame: 10, true_category: 'happy',   emotion_percent: 40,  emotion_level_label: 'happy_40' },
+    { frame: 13, true_category: 'happy',   emotion_percent: 20,  emotion_level_label: 'happy_20' },
+    { frame: 16, true_category: 'neutral', emotion_percent: 0,   emotion_level_label: 'happy_0_neutral' },
+    { frame: 19, true_category: 'angry',   emotion_percent: 20,  emotion_level_label: 'angry_20' },
+    { frame: 22, true_category: 'angry',   emotion_percent: 40,  emotion_level_label: 'angry_40' },
+    { frame: 25, true_category: 'angry',   emotion_percent: 60,  emotion_level_label: 'angry_60' },
+    { frame: 28, true_category: 'angry',   emotion_percent: 80,  emotion_level_label: 'angry_80' },
+    { frame: 31, true_category: 'angry',   emotion_percent: 100, emotion_level_label: 'angry_100' }
+  ];
+
+  const STIMULUS_SETS = Array.from({ length: N_SETS }, (_, i) => {
+    const n = String(i + 1).padStart(2, '0');
+    return { set_id: i + 1, set_name: `set${n}`, stim_path: `${IMAGE_ROOT}/set${n}/` };
+  });
+
+
+  const TRAINING_IMAGE_ROOT = 'images_training';
+  const TRAINING_STIMULUS_SETS = [
+    { set_id: 'training_01', set_name: 'training_set01', stim_path: `${TRAINING_IMAGE_ROOT}/set01/` },
+    { set_id: 'training_02', set_name: 'training_set02', stim_path: `${TRAINING_IMAGE_ROOT}/set02/` }
+  ];
+
+  function framePath(stimPath, frameNumber) {
+    const frameText = String(frameNumber).padStart(FRAME_NUMBER_DIGITS, '0');
+    return `${stimPath}frame_${frameText}.png`;
+  }
+
+  function makeDynamicFrames(stimPath, directionLabel) {
+    const frames = [];
+    if (directionLabel === 'happy_to_angry') {
+      for (let f = 1; f <= N_FRAMES; f++) frames.push({ src: framePath(stimPath, f), file_frame_number: f });
+    } else {
+      for (let f = N_FRAMES; f >= 1; f--) frames.push({ src: framePath(stimPath, f), file_frame_number: f });
+    }
+    return frames;
+  }
+
+  // =========================================================
+  // 2. Fullscreen
+  // =========================================================
+  const fullscreenTrial = {
+    type: jsPsychFullscreen,
+    fullscreen_mode: true,
+    message: `
+      <div class="instruction-box">
+        <p>이 실험은 전체화면 모드에서 진행됩니다.</p>
+        <p>아래 버튼을 누르면 전체화면으로 전환됩니다.</p>
+      </div>
+    `,
+    button_label: '전체화면으로 시작하기'
+  };
+
+  // =========================================================
+  // 3. Preload
+  // =========================================================
+  const preloadImages = [];
+  STIMULUS_SETS.forEach(s => {
+    for (let f = 1; f <= N_FRAMES; f++) preloadImages.push(framePath(s.stim_path, f));
+  });
+  TRAINING_STIMULUS_SETS.forEach(s => {
+    for (let f = 1; f <= N_FRAMES; f++) preloadImages.push(framePath(s.stim_path, f));
+  });
+
+  const preload = {
+    type: jsPsychPreload,
+    images: [...new Set(preloadImages)],
+    message: '이미지를 불러오는 중입니다. 잠시만 기다려 주세요.',
+    error_message: '이미지를 불러오지 못했습니다. 경로와 파일명을 확인해 주세요.',
+    continue_after_error: false
+  };
+
+  // =========================================================
+  // 4. Dynamic 시퀀스
+  // =========================================================
+  function buildDynamicSequence(directionLabel, stimulusSet, repeat, baseSequenceId, isPractice) {
+    const frames = makeDynamicFrames(stimulusSet.stim_path, directionLabel);
+    let runNumber = 0; // 이 시퀀스 전용 카운터. 재시도마다 1씩 증가.
+    const currentSequenceUid = () => `${baseSequenceId}_run${runNumber}`;
+
+    const baseData = (extra) => () => ({
+      block: isPractice ? 'practice_dynamic' : 'dynamic',
+      sequence_uid: currentSequenceUid(),
+      direction_label: directionLabel,
+      set_id: stimulusSet.set_id,
+      set_name: stimulusSet.set_name,
+      stim_path: stimulusSet.stim_path,
+      repeat: repeat,
+      ...extra
+    });
+
+    const trials = [];
+
+    trials.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '<div class="iti-screen"></div>',
+      choices: 'NO_KEYS',
+      trial_duration: ITI_DURATION_MS,
+      on_start: function() { runNumber++; }, // 시퀀스 시작마다 증가 (재시도 구분용)
+      data: baseData({ phase: 'iti' })
+    });
+
+    frames.forEach((frameInfo, idx) => {
+      const sequencePosition = idx + 1;
+      const isLastFrame = sequencePosition === frames.length;
+
+      trials.push(attachFlashFeedback({
+        type: jsPsychImageKeyboardResponse,
+        stimulus: frameInfo.src,
+
+        stimulus_width: 260,
+        stimulus_height: 260,
+        maintain_aspect_ratio: false,
+        
+        choices: [' '],
+        trial_duration: IMAGE_DURATION_MS,
+        response_ends_trial: false, 
+        data: baseData({
+          phase: 'image',
+          sequence_position: sequencePosition,
+          file_frame_number: frameInfo.file_frame_number
+        })
+      }, [' ']));
+
+    
+      if (!isLastFrame) {
+        trials.push(attachFlashFeedback({
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: '<div class="fixation-cross">+</div>',
+          choices: [' '],
+          trial_duration: FIXATION_DURATION_MS,
+          response_ends_trial: false,
+          data: baseData({
+            phase: 'fixation',
+            sequence_position: sequencePosition,   // 직전 프레임 번호 그대로 기록
+            file_frame_number: frameInfo.file_frame_number
+          })
+        }, [' ']));
+      }
+    });
+
+    return { trials, getCurrentSequenceUid: currentSequenceUid };
+  }
+
+ 
+function countResponsesInSequence(sequenceUid) {
+  return jsPsych.data.get()
+    .filter({ sequence_uid: sequenceUid })
+    .values()
+    .filter(t => t.response === ' ')
+    .length;
+}
+
+  // =========================================================
+  // 5. 안내문
+  // =========================================================
+  function makeTextScreen(html) {
+    return {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<div class="instruction-screen"><div class="instruction-box">${html}</div></div>`
+    };
+  }
+
+  const instruction = makeTextScreen(`
+    <p>각 시행에서는 한 사람의 얼굴 표정이 연속적으로 변화합니다.</p>
+    <p>처음에는 감정이 뚜렷한 표정으로 시작해서, 중간에 무표정을 지나, 마지막에는 다른 감정의 표정으로 바뀝니다.</p>
+    <p><strong style="color: rgb(43, 108, 176);">무표정이 시작됐다고 느끼는 순간</strong> 스페이스바를 한 번 누르세요.</p>
+    <p>그 후, 다시 <strong style="color: rgb(43, 108, 176);">감정이 드러나기 시작했다고 느끼는 순간</strong> 스페이스바를 한 번 더 누르세요.</p>
+    <p>버튼을 누른 시점에는 자극 아래에 파란 체크 표시가 나타납니다.</p>
+    <br>
+    <p>먼저 연습시행을 진행합니다.</p>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+
+  let practiceAttemptNumber = 0; // 0=아직 시작 전, 1=첫 시도, 2=재시도...
+
+  const practiceIntro = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: () => {
+      if (practiceAttemptNumber === 0) {
+        return `
+          <div class="instruction-screen"><div class="instruction-box">
+            <h2>연습시행</h2>
+            <p>얼굴 표정이 연속적으로 변화합니다. 스페이스바를 정확히 <strong>두 번</strong> 눌러주세요.</p>
+            <br>
+            <p>1번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+            <p>2번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+            <br>
+            <p>아무 키나 누르면 연습시행이 시작됩니다.</p>
+          </div></div>`;
+      }
+      return `
+      <div class="instruction-screen">
+        <div class="instruction-box">
+          <div class="retry warning">
+            <p>방금 진행한 연습시행 중 <strong style="color: rgb(192, 57, 43);">스페이스바가 정확히 두 번 눌리지 않은 시행</strong>이 있었습니다.</p>
+            <p> 본 실험 데이터가 정확히 기록되려면 각 시행마다 반드시 두 번 반응해야 하므로, 
+            절차에 충분히 익숙해지실 때까지 연습을 반복합니다. </p>
+          <p>스페이스바를 정확히<strong style="color: rgb(192, 57, 43);"> 두 번</strong> 눌러주세요.</p>
+          <p>1번째: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+          <p>2번째: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+          <br>
+          <p>아무 키나 누르면 연습시행을 다시 진행합니다.</p>
+        </div></div>`;
+    },
+    choices: 'ALL_KEYS',
+    on_start: function() { practiceAttemptNumber++; }
+  };
+
+  const mainDynamicIntro = makeTextScreen(`
+    <h2>본 시행</h2>
+    <p>이제 본 시행을 시작합니다. 각 시행에서 스페이스바를 두 번 누르세요.</p>
+    <br>
+    <p>1번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+    <p>2번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+    <br>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  function makeBreakScreen(currentBlock, totalBlocks) {
+    const remainingBlocks = totalBlocks - currentBlock;
+    return makeTextScreen(`
+      <p>${currentBlock}번째 구간을 마쳤습니다.</p>
+      <p>앞으로 ${remainingBlocks}개의 구간이 남았습니다.</p>
+      <p>잠시 휴식하신 후, 준비되시면 아무 키나 눌러주세요.</p>
+    `);
+   }
+
+  const randomIntro = makeTextScreen(`
+    <h2>다음 과제</h2>
+    <p>이번에는 얼굴 이미지가 한 장씩 짧게 제시됩니다.</p>
+    <p>각 이미지를 보고 가장 가깝다고 느껴지는 표정을 키보드로 응답하세요.</p>
+    <br>
+    <p><strong>왼쪽 화살표(←)</strong>: 화남</p>
+    <p><strong>위쪽 화살표(↑)</strong>: 무표정</p>
+    <p><strong>오른쪽 화살표(→)</strong>: 행복</p>
+    <br>
+    <p>이미지가 제시되는 동안 화면에도 응답키 안내가 함께 표시됩니다.</p>
+    <p>응답이 기록되면 화면에 파란 체크 표시가 나타납니다.</p>
+    <br>
+    <p>아무 키나 누르면 시작합니다.</p>
+  `);
+
+  const contactInfoTrial = {
+  type: jsPsychSurveyText,
+  questions: [
+    {
+      prompt: '참여에 대한 보상 지급을 위해 <strong>이메일 또는 전화번호</strong>를 입력해 주세요.',
+      placeholder: '예: example@email.com 또는 010-1234-5678',
+      rows: 1,
+      columns: 40,
+      required: true,
+      name: 'contact_info'
+    }
+  ],
+  button_label: '제출',
+  data: { block: 'contact_info' }
+};
+
+const endScreen = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `<div class="instruction-screen"><div class="instruction-box">
+    <h2>실험이 완료되었습니다.</h2>
+    <p>응답해 주셔서 감사합니다.</p>
+  </div></div>`,
+  choices: 'NO_KEYS',
+  trial_duration: null
+};
+
+  // =========================================================
+  // 6. 연습 시행: 2 set x 2 direction = 4 sequences
+  // =========================================================
+  const practiceSequenceBuilders = [];
+  TRAINING_STIMULUS_SETS.forEach((trainingSet, setIdx) => {
+    ['happy_to_angry', 'angry_to_happy'].forEach((direction, dirIdx) => {
+      practiceSequenceBuilders.push(
+        buildDynamicSequence(direction, trainingSet, 1, `practice_${setIdx}_${dirIdx}`, true)
+      );
+    });
+  });
+
+  const practiceTrialsFlat = practiceSequenceBuilders.flatMap(b => b.trials);
+
+
+  const practiceLoop = {
+    timeline: [practiceIntro, ...practiceTrialsFlat],
+    loop_function: function() {
+      const allPassed = practiceSequenceBuilders.every(b =>
+        countResponsesInSequence(b.getCurrentSequenceUid()) === 2
+      );
+      return !allPassed; // true를 반환하면 반복
+    }
+  };
+
+  // =========================================================
+  // 7. Dynamic 본 시행: 2 direction x 10 set x 4 rep = 80 sequences
+  // =========================================================
+  const dynamicConditions = [];
+   for (let rep = 1; rep <= DYNAMIC_REPS; rep++) {
+  const chunk = [];
+  STIMULUS_SETS.forEach(s => {
+    ['happy_to_angry', 'angry_to_happy'].forEach(direction => {
+      chunk.push({ set: s, direction, rep });
+    });
+  });
+  const shuffledChunk = jsPsych.randomization.shuffle(chunk); // 청크(20개) 내부만 셔플
+  dynamicConditions.push(...shuffledChunk);
+ }
+
+const shuffledDynamicConditions = dynamicConditions;
+
+  const dynamicTimelineTrials = [];
+shuffledDynamicConditions.forEach((cond, i) => {
+  const baseId = `dyn_${cond.set.set_id}_${cond.direction}_rep${cond.rep}`;
+  const { trials } = buildDynamicSequence(cond.direction, cond.set, cond.rep, baseId, false);
+  dynamicTimelineTrials.push(...trials);
+
+  const sequenceNumber = i + 1;
+  const isBreakPoint = sequenceNumber % DYNAMIC_BREAK_EVERY_N_SEQUENCES === 0;
+  const isLast = sequenceNumber === shuffledDynamicConditions.length;
+  if (isBreakPoint && !isLast) {
+    const currentBlock = sequenceNumber / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
+    const totalBlocks = shuffledDynamicConditions.length / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
+    dynamicTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks));
+  }
+});
+
+ // =========================================================
+// 8. Random 3AFC: 10 set x 11 level x 3 rep = 330 trials
+// =========================================================
+
+
+const randomConditions = [];
+STIMULUS_SETS.forEach(s => {
+  SELECTED_LEVELS.forEach(level => {
+    for (let rep = 1; rep <= RANDOM_REPS; rep++) {
+      randomConditions.push({
+        trial_id: `random_${s.set_id}_${level.emotion_level_label}_rep${rep}`,
+        set_id: s.set_id, set_name: s.set_name, stim_path: s.stim_path, repeat: rep,
+        frame_number: level.frame, image_path: framePath(s.stim_path, level.frame),
+        true_category: level.true_category, emotion_percent: level.emotion_percent,
+        emotion_level_label: level.emotion_level_label
+      });
+    }
+  });
+});
+const shuffledRandomConditions = jsPsych.randomization.shuffle(randomConditions);
+
+function makeRandom3AFCTrials(condition) {
+  const commonData = {
+    block: 'random_3afc', order_condition: 'random',
+    trial_id: condition.trial_id, set_id: condition.set_id, set_name: condition.set_name,
+    stim_path: condition.stim_path, repeat: condition.repeat,
+    frame_number: condition.frame_number, image_path: condition.image_path,
+    true_category: condition.true_category, emotion_percent: condition.emotion_percent,
+    emotion_level_label: condition.emotion_level_label
+  };
+
+  return [
+    {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '<div class="fixation-cross">+</div>',
+      choices: 'NO_KEYS',
+      trial_duration: FIXATION_DURATION_MS,
+      data: { ...commonData, phase: 'fixation' }
+    },
+    attachFlashFeedback({
+      type: jsPsychImageKeyboardResponse,
+      stimulus: condition.image_path,
+
+      stimulus_width: 260,
+      stimulus_height: 260,
+      maintain_aspect_ratio: false,
+
+      choices: RESPONSE_KEYS_3AFC,
+      trial_duration: IMAGE_DURATION_MS,
+      response_ends_trial: false,
+      prompt: `
+        <div class="response-cue response-cue-neutral">↑ 무표정</div>
+        <div class="response-cue response-cue-angry">← 화남</div>
+        <div class="response-cue response-cue-happy">행복 →</div>
+      `,
+      data: { ...commonData, phase: 'image' },
+      on_finish: function(data) {
+        data.response_label = keyToResponseLabel(data.response);
+        data.correct = data.response_label === null ? null : data.response_label === condition.true_category;
+      }
+    }, RESPONSE_KEYS_3AFC),
+    {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '<div class="iti-screen"></div>',
+      choices: 'NO_KEYS',
+      trial_duration: ITI_DURATION_MS,
+      data: { ...commonData, phase: 'iti' }
+    }
+  ];
+}
+
+// =========================================================
+// Random 3AFC 연습
+// =========================================================
+const RANDOM_TRAINING_LEVELS = [
+  SELECTED_LEVELS[0],  // happy_100
+  SELECTED_LEVELS[2],  // happy_60
+  SELECTED_LEVELS[4],  // happy_20
+  SELECTED_LEVELS[6],  // angry_20
+  SELECTED_LEVELS[8],  // angry_60
+  SELECTED_LEVELS[10]  // angry_100
+];
+
+const randomTrainingStimSet = TRAINING_STIMULUS_SETS[0]; 
+
+const randomPracticeConditions = RANDOM_TRAINING_LEVELS.map((level, idx) => ({
+  trial_id: `practice_random_${idx + 1}`,
+  set_id: randomTrainingStimSet.set_id,
+  set_name: randomTrainingStimSet.set_name,
+  stim_path: randomTrainingStimSet.stim_path,
+  repeat: 1,
+  frame_number: level.frame,
+  image_path: framePath(randomTrainingStimSet.stim_path, level.frame),
+  true_category: level.true_category,
+  emotion_percent: level.emotion_percent,
+  emotion_level_label: level.emotion_level_label
+}));
+
+const randomPracticeTrialsFlat = randomPracticeConditions.flatMap(c => {
+  const trials = makeRandom3AFCTrials(c);
+  trials.forEach(t => { t.data = { ...t.data, block: 'practice_random_3afc' }; });
+  return trials;
+});
+
+let randomPracticeAttemptNumber = 0;
+
+const randomPracticeIntro = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => {
+    if (randomPracticeAttemptNumber === 0) {
+      return `
+        <div class="instruction-screen"><div class="instruction-box">
+          <h2>연습시행</h2>
+          <p>얼굴 이미지가 한 장씩 제시됩니다. 화살표 키로 응답해주세요.</p>
+          <br>
+          <p><strong>왼쪽 화살표(←)</strong>: 화남</p>
+          <p><strong>위쪽 화살표(↑)</strong>: 무표정</p>
+          <p><strong>오른쪽 화살표(→)</strong>: 행복</p>
+          <br>
+          <p>아무 키나 누르면 연습시행이 시작됩니다.</p>
+        </div></div>`;
+    }
+    return `
+      <div class="instruction-screen"><div class="instruction-box">
+        <div class="retry-warning">
+          <p>방금 연습시행 중 <strong style="color: rgb(192, 57, 43);">응답하지 않고 지나간 이미지</strong>가 있었습니다.</p>
+          <p>본 실험에서는 각 이미지마다 반드시 세 키(← ↑ →) 중 하나로 응답해야 하므로,
+          절차에 충분히 익숙해지실 때까지 연습을 반복합니다.</p>
+        </div>
+        <p><strong>왼쪽 화살표(←)</strong>: 화남 &nbsp;&nbsp; <strong>위쪽 화살표(↑)</strong>: 무표정 &nbsp;&nbsp; <strong>오른쪽 화살표(→)</strong>: 행복</p>
+        <br>
+        <p>아무 키나 누르면 연습시행을 다시 진행합니다.</p>
+      </div></div>`;
+  },
+  choices: 'ALL_KEYS',
+  on_start: function() { randomPracticeAttemptNumber++; }
+};
+
+const randomPracticeLoop = {
+  timeline: [randomPracticeIntro, ...randomPracticeTrialsFlat],
+  loop_function: function() {
+    const recentPracticeImages = jsPsych.data.get()
+      .filter({ block: 'practice_random_3afc', phase: 'image' })
+      .last(RANDOM_TRAINING_LEVELS.length)
+      .values();
+    const allResponded = recentPracticeImages.length === RANDOM_TRAINING_LEVELS.length
+      && recentPracticeImages.every(t => t.response !== null);
+    return !allResponded;
+  }
+};
+
+const randomTimelineTrials = [];
+shuffledRandomConditions.forEach((cond, i) => {
+  randomTimelineTrials.push(...makeRandom3AFCTrials(cond));
+  const trialNumber = i + 1;
+  const isBreakPoint = trialNumber % RANDOM_BREAK_EVERY_N_TRIALS === 0;
+  const isLast = trialNumber === shuffledRandomConditions.length;
+  if (isBreakPoint && !isLast) {
+    const currentBlock = trialNumber / RANDOM_BREAK_EVERY_N_TRIALS;
+    const totalBlocks = shuffledRandomConditions.length / RANDOM_BREAK_EVERY_N_TRIALS;
+    randomTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks));
+  }
+});
+
+  // =========================================================
+  // 9. 전체 timeline
+  // =========================================================
+  const timeline = [
+    fullscreenTrial,
+    preload,
+    instruction,
+    practiceLoop,
+    mainDynamicIntro,
+    ...dynamicTimelineTrials,
+    makeTextScreen(`<p>첫 번째 과제가 끝났습니다.</p><p>잠시 휴식하신 후, 준비되시면 아무 키나 눌러주세요.</p>`),
+    randomIntro,
+    randomPracticeLoop,
+    ...randomTimelineTrials,
+    contactInfoTrial,
+    endScreen
+  ];
+
+  jsPsych.run(timeline);
+</script>
+</html>
