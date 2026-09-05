@@ -12,6 +12,9 @@
   <script src="https://unpkg.com/@jspsych/plugin-survey-text@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-animation@2.1.0"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-database.js"></script>   
   <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
 
   <style>
@@ -24,7 +27,7 @@
      inset: 0;
      overflow: hidden;
 }
-    .jspsych-display-element { background-color: rgb(166, 166, 166); }
+    .jspsych-display-element { background-color: rgb(31, 12, 12); }
     #jspsych-content { max-width: none; }
 
     .instruction-screen {
@@ -99,6 +102,27 @@
 
 <body></body>
 
+<script type="text/javascript">
+    // Firebase set up
+    const firebaseConfig = {
+      apiKey: "AIzaSyDHkDqKsRJZLSOoWEfexThOiOIv_894vh0",
+      authDomain: "hysteresis-sa.firebaseapp.com",
+      databaseURL: "https://hysteresis-sa-default-rtdb.firebaseio.com",
+      projectId: "hysteresis-sa",
+      storageBucket: "hysteresis-sa.firebasestorage.app",
+      messagingSenderId: "701234848926",
+      appId: "1:701234848926:web:647a9ccdcecd8ae75dc78f"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    // login anonymous user
+    firebase.auth().signInAnonymously().catch(function(error) {
+        var errorCode = error.code;
+        var errorMessage = error.message;
+    });      
+</script>
+
 <script>
   // =========================================================
   // 0. jsPsych
@@ -109,6 +133,8 @@
 
   const participant_id = jsPsych.randomization.randomID(10);
   jsPsych.data.addProperties({ participant_id: participant_id });
+
+  let pendingContactInfo = null; // to separate experiment data and contact info.
 
   // =========================================================
   // A. 설문 파트
@@ -760,14 +786,48 @@ function countResponsesInSequence(sequenceUid) {
       }
     ],
     button_label: '제출',
-    data: { block: 'contact_info' }
+    data: { block: 'contact_info' },
+
+    on_finish: function(data){
+      pendingContactInfo = data.response.contact_info;
+      data.response = null;
+    }
+  };
+
+  const save_contact_data = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: '',
+    choices: "NO_KEYS",
+    trial_duration: null,
+    data: { block: 'contact_saving' },
+    on_load: async function() {
+      try {
+        const now = new Date();
+        await firebase.database()
+          .ref(`contacts/${participant_id}`)
+          .set({
+            participant_id: participant_id,
+            contact_info: pendingContactInfo,
+            date: now.toString()
+          });
+        console.log("Contact information saved successfully.");
+        jsPsych.finishTrial({ save_status: 'success' });
+      } catch (error) {
+        console.error("Error saving contact information:", error);
+        jsPsych.finishTrial({
+          save_status: 'failed',
+          save_error: String(error)
+        });
+      }
+    }
   };
 
   const endScreen = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="instruction-screen"><div class="instruction-box">
       <h2>실험이 완료되었습니다.</h2>
-      <p>응답해 주셔서 감사합니다.</p>
+      <p>참가해 주셔서 감사합니다.</p>
+      <p>이제 실험 페이지를 닫으셔도 됩니다.</p>
     </div></div>`,
     choices: 'NO_KEYS',
     trial_duration: null
@@ -1081,7 +1141,7 @@ const randomPracticeLoop = {
   // 전체 timeline
   // =========================================================
     const dynamicPracticeFailedNode = {
-    timeline: [dynamicPracticeFailedScreen],
+    timeline: [save_data, dynamicPracticeFailedScreen],
     conditional_function: function() { return !dynamicPracticePassed; }
   };
 
@@ -1093,15 +1153,17 @@ const randomPracticeLoop = {
       randomIntro,
       randomPracticeLoop,
       mainRandomIntro,
-      ...randomTimelineTrials,
+      // ...randomTimelineTrials,
       contactInfoTrial,
+      save_contact_data,
+      save_data,
       endScreen
     ],
     conditional_function: function() { return dynamicPracticePassed; }
   };
 
   const ineligibleNode = {
-  timeline: [survey.ineligibleEnd],
+  timeline: [save_data, survey.ineligibleEnd],
   conditional_function: function() {
     const demoData = jsPsych.data.get().filter({ scale_id: "demographics" }).last(1).values()[0];
     return demoData.eligible === false;
@@ -1134,6 +1196,85 @@ const randomPracticeLoop = {
     ineligibleNode,
     eligibleFullExperimentNode
   ];
+
+  function replaceUndefinedWithNull(obj) {
+    if (Array.isArray(obj)) {
+        return obj.map(replaceUndefinedWithNull);
+    }
+    if (obj !== null && typeof obj === "object") {
+        const cleaned = {};
+        for (const key in obj) {
+        cleaned[key] =
+            obj[key] === undefined ? null : replaceUndefinedWithNull(obj[key]);
+        }
+        return cleaned;
+    }
+    return obj;
+  }
+
+  const save_data = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="instruction-screen">
+        <div class="instruction-box">
+          <p>데이터를 저장하고 있습니다.</p>
+          <p>저장이 완료될 때까지 이 페이지를 닫지 말아 주세요.</p>
+        </div>
+      </div>
+      `,
+    choices: "NO_KEYS",
+    trial_duration: null,
+      data: { block: 'data_saving'  },            
+      on_finish: async function(){  
+        try {
+          const now = new Date();                               
+          const timestamp =
+            now.getFullYear().toString() +
+            String(now.getMonth() + 1).padStart(2, '0') +
+            String(now.getDate()).padStart(2, '0') +
+            String(now.getHours()).padStart(2, '0') +
+            String(now.getMinutes()).padStart(2, '0') +
+            String(now.getSeconds()).padStart(2, '0') +
+            String(now.getMilliseconds()).padStart(3, '0');
+        
+          const save_id = participant_id + "_" + timestamp;
+          const saveData = replaceUndefinedWithNull(
+            jsPsych.data.get().filterCustom(function(trial) {
+              return trial.block !== 'contact_info' &&
+                      trial.block !== 'contact_saving';
+            }).values()
+          );
+          const interactionData = replaceUndefinedWithNull(
+              jsPsych.data.getInteractionData().values()
+          );
+          const savePromise = firebase.database()
+            .ref(`experiment_data/${save_id}`)
+            .set({
+              participant_id: participant_id,
+              data: saveData,
+              interaction_data: interactionData,
+              date: now.toString()
+            })
+          const minimumDisplayTime = new Promise(resolve => {
+            setTimeout(resolve, 3000);
+          })
+          await Promise.all([
+            savePromise,
+            minimumDisplayTime
+          ]);
+          jsPsych.finishTrial({
+            save_status: 'succeess', 
+            save_id: save_id
+          });           
+        } catch (error) {
+          console.error("Error saveing experimentla data:", error);
+          jsPsych.finishTrial({
+            save_status: 'failed',
+            save_error: String(error)
+          });
+        }           
+      }
+    }
 
   jsPsych.run(timeline);
 </script>
