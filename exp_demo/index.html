@@ -447,6 +447,50 @@
 
   const survey = buildSurveyTimeline();
 
+  const studyDescriptionTrial = {
+  type: jsPsychHtmlKeyboardResponse,
+  choices: "NO_KEYS",
+  trial_duration: null,
+  stimulus: `
+    <div class="survey-card">
+      <h1>연구 설명문</h1>
+
+      <p class="survey-instruction">
+        아래 연구 설명문을 충분히 읽어주십시오.<br>
+        설명문을 확인한 뒤 아래 버튼을 누르면 연구 동의서로 넘어갑니다.
+      </p>
+
+      <div style="width: 100%; height: 70vh; border: 1px solid #ccc; margin: 20px 0;">
+        <iframe
+          src="study_description.pdf"
+          style="width: 100%; height: 100%; border: none;"
+        ></iframe>
+      </div>
+
+      <p class="small-note">
+        PDF가 화면에 보이지 않는 경우, 파일을 새로고침하거나 브라우저 환경을 확인해 주십시오.
+      </p>
+
+      <div style="text-align:center; margin-top: 24px;">
+        <button id="description-next" class="jspsych-btn" style="font-size: 18px; padding: 10px 24px;">
+          연구 설명문을 확인했습니다
+        </button>
+      </div>
+    </div>
+  `,
+  data: { block: "study_description" },
+  on_load: function() {
+    const descriptionStartTime = performance.now();
+
+    document.querySelector("#description-next").addEventListener("click", function() {
+      jsPsych.finishTrial({
+        description_confirmed: true,
+        rt: Math.round(performance.now() - descriptionStartTime)
+      });
+    });
+  }
+};
+
   const consentTrial = {
   type: jsPsychHtmlKeyboardResponse,
   choices: "NO_KEYS",
@@ -765,6 +809,7 @@ function countResponsesInSequence(sequenceUid) {
 
   let dynamicPracticePassed = false;
   let practiceAttemptNumber = 0;
+  let currentDynamicPracticeConditions = [];
 
   const practiceIntro = {
     type: jsPsychHtmlKeyboardResponse,
@@ -800,7 +845,9 @@ function countResponsesInSequence(sequenceUid) {
     },
     choices: 'ALL_KEYS',
     data: { block: 'dynamic_practice_instruction' },
-    on_start: function() { practiceAttemptNumber++; }
+    on_finish: function() {
+  practiceAttemptNumber++;
+  currentDynamicPracticeConditions = jsPsych.randomization.shuffle([...dynamicPracticeConditionsBase]);}
   };
 
   const mainDynamicIntro = makeTextScreen(`
@@ -932,35 +979,141 @@ function countResponsesInSequence(sequenceUid) {
   };
 
   // ---- 6. 연습 시행: 2 set x 2 direction = 4 sequences ----
-  const practiceSequenceBuilders = [];
-  TRAINING_STIMULUS_SETS.forEach((trainingSet, setIdx) => {
-    ['happy_to_angry', 'angry_to_happy'].forEach((direction, dirIdx) => {
-      practiceSequenceBuilders.push(
-        buildDynamicSequence(direction, trainingSet, 1, `practice_${setIdx}_${dirIdx}`, true)
-      );
+  const dynamicPracticeConditionsBase = [];
+
+TRAINING_STIMULUS_SETS.forEach((trainingSet, setIdx) => {
+  ['happy_to_angry', 'angry_to_happy'].forEach((direction, dirIdx) => {
+    const frames = makeDynamicFrames(trainingSet.stim_path, direction);
+
+    const frameLookup = {};
+    frames.forEach((f, idx) => {
+      frameLookup[f.src] = {
+        sequence_position: idx + 1,
+        file_frame_number: f.file_frame_number
+      };
+    });
+
+    dynamicPracticeConditionsBase.push({
+      condition_id: `practice_${setIdx}_${dirIdx}`,
+      direction_label: direction,
+      stimulusSet: trainingSet,
+      frames: frames,
+      frameLookup: frameLookup
     });
   });
+});
 
-  const shuffledPracticeSequenceBuilders = jsPsych.randomization.shuffle(practiceSequenceBuilders);
-  const practiceTrialsFlat = shuffledPracticeSequenceBuilders.flatMap(b => b.trials);
+function makeDynamicPracticeSequenceSlot(slotIndex) {
+  function getCondition() {
+    return currentDynamicPracticeConditions[slotIndex];
+  }
 
-  const practiceLoop = {
-    timeline: [practiceIntro, ...practiceTrialsFlat],
-    loop_function: function() {
-      const allPassed = shuffledPracticeSequenceBuilders.every(b =>
-        countResponsesInSequence(b.getCurrentSequenceUid()) === 2
-      );
-      if (allPassed) {
-        dynamicPracticePassed = true;
-        return false;
-      }
-      if (practiceAttemptNumber >= MAX_PRACTICE_ATTEMPTS) {
-        dynamicPracticePassed = false;
-        return false;
-      }
-      return true;
+  function makePracticeData(phase) {
+    const condition = getCondition();
+
+    return {
+      block: 'practice_dynamic',
+      phase: phase,
+      practice_attempt: practiceAttemptNumber,
+      practice_slot: slotIndex + 1,
+      sequence_uid: `practice_attempt${practiceAttemptNumber}_slot${slotIndex + 1}_${condition.condition_id}`,
+      direction_label: condition.direction_label,
+      set_id: condition.stimulusSet.set_id,
+      set_name: condition.stimulusSet.set_name,
+      stim_path: condition.stimulusSet.stim_path,
+      repeat: 1
+    };
+  }
+
+  const itiTrial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: '<div class="iti-screen"></div>',
+    choices: 'NO_KEYS',
+    trial_duration: ITI_DURATION_MS,
+    data: function() {
+      return makePracticeData('iti');
     }
   };
+
+  const animationTrial = attachFlashFeedback({
+    type: jsPsychAnimation,
+    stimuli: function() {
+      return getCondition().frames.map(f => f.src);
+    },
+    frame_time: IMAGE_DURATION_MS,
+    frame_isi: FIXATION_DURATION_MS,
+    choices: [' '],
+    render_on_canvas: false,
+    data: function() {
+      return makePracticeData('animation');
+    },
+    on_finish: function(data) {
+      const condition = getCondition();
+      const responses = data.response || [];
+      const sequence = data.animation_sequence || [];
+
+      function resolveByTime(rt) {
+        let matched = null;
+
+        for (const entry of sequence) {
+          if (entry.time > rt) break;
+          if (entry.stimulus !== 'blank') matched = entry;
+        }
+
+        return matched ? condition.frameLookup[matched.stimulus] : null;
+      }
+
+      const resolved = responses.map(r => ({
+        ...(resolveByTime(r.rt) || {}),
+        rt: r.rt
+      }));
+
+      data.response_count = resolved.length;
+      data.first_response_sequence_position = resolved[0]?.sequence_position ?? null;
+      data.first_response_file_frame = resolved[0]?.file_frame_number ?? null;
+      data.first_response_rt = resolved[0]?.rt ?? null;
+      data.second_response_sequence_position = resolved[1]?.sequence_position ?? null;
+      data.second_response_file_frame = resolved[1]?.file_frame_number ?? null;
+      data.second_response_rt = resolved[1]?.rt ?? null;
+    }
+  }, [' ']);
+
+  return [itiTrial, animationTrial];
+}
+
+const practiceTrialsFlat = Array.from(
+  { length: dynamicPracticeConditionsBase.length },
+  (_, slotIndex) => makeDynamicPracticeSequenceSlot(slotIndex)
+).flat();
+
+const practiceLoop = {
+  timeline: [practiceIntro, ...practiceTrialsFlat],
+  loop_function: function() {
+    const recentPracticeAnimations = jsPsych.data.get()
+      .filter({
+        block: 'practice_dynamic',
+        phase: 'animation',
+        practice_attempt: practiceAttemptNumber
+      })
+      .values();
+
+    const allPassed =
+      recentPracticeAnimations.length === dynamicPracticeConditionsBase.length &&
+      recentPracticeAnimations.every(t => t.response_count === 2);
+
+    if (allPassed) {
+      dynamicPracticePassed = true;
+      return false;
+    }
+
+    if (practiceAttemptNumber >= MAX_PRACTICE_ATTEMPTS) {
+      dynamicPracticePassed = false;
+      return false;
+    }
+
+    return true;
+  }
+};
 
   // ---- 7. Dynamic 본 시행: 2 direction x 10 set x 4 rep = 80 sequences ----
   const dynamicConditions = [];
@@ -1385,6 +1538,7 @@ const afterConsentNode = {
 
 const timeline = [
   fullscreenTrial,
+  studyDescriptionTrial,
   consentTrial,
   consentDeclinedNode,
   afterConsentNode
