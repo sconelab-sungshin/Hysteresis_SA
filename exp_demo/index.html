@@ -18,16 +18,22 @@
   <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
 
   <style>
-    html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      background-color: rgb(166, 166, 166); overflow: hidden;
-    }
-    body.scroll-locked {
-     position: fixed;
-     inset: 0;
-     overflow: hidden; 
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    background-color: rgb(166, 166, 166);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
-    .jspsych-display-element { background-color: rgb(31, 12, 12); }
+
+  body.scroll-locked {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+}
+    .jspsych-display-element { background-color: rgb(166, 166, 166); }
     #jspsych-content { max-width: none; }
 
     .instruction-screen {
@@ -246,7 +252,7 @@
         html: `<div class="survey-card"><h2>${title}</h2><div class="survey-instruction">${instruction}</div>${makeLikertHtml(items, options, namePrefix)}</div>`,
         button_label: "다음",
         autocomplete: false,
-        data: { task: "questionnaire", scale_id: scaleId },
+        data: { block: `Q_${scaleId}`, task: "questionnaire", scale_id: scaleId },
         on_load: function() {
           const button = document.querySelector("#jspsych-survey-html-form-next");
           const warning = document.querySelector(`#${namePrefix}_warning`);
@@ -292,7 +298,8 @@
           </p>
           <p style="text-align:center; font-weight:700;">아무 키나 누르면 시작합니다.</p>
         </div>
-      `
+      `,
+      data: { block: 'survey_intro' }
     };
 
     const staiTrial = makeLikertTrial({ 
@@ -351,13 +358,14 @@
             <div class="demo-question"><p><strong>5. 귀하는 현재 또는 과거에 시각 지각이나 컴퓨터 기반 과제 수행에 영향을 줄 수 있는 신경학적 질환을 진단받은 적이 있습니까?</strong></p>
               <label><input type="radio" name="neurological_disease" value="yes"> 예</label>
               <label><input type="radio" name="neurological_disease" value="no"> 아니오</label>
+              </div>
             <div class="missing-warning">연구 참여 기준을 충족하지 않는 경우, 이후 설문으로 진행되지 않고 설문이 종료됩니다.</div>
           </div>
         </div>
       `,
       button_label: "다음",
       autocomplete: false,
-      data: { task: "questionnaire", scale_id: "demographics" },
+      data: { block: 'demographics', task: "questionnaire", scale_id: "demographics" },
       on_load: function() {
         const button = document.querySelector("#jspsych-survey-html-form-next");
         button.style.display = "block";
@@ -413,13 +421,13 @@
            귀하께서 응답해 주신 내용을 바탕으로 연구 참여 가능 여부를 확인한 결과, 본 연구에서 정한 참여 기준에 따라<br> 
            이후 설문 및 실험 과제를 진행하기 어렵습니다.<br><br>
            연구에 관심을 가지고 참여해 주신 점에 감사드립니다.
-         </p>
-         <p style="text-align:center; font-weight:700;">
-            아무 키나 누르면 종료됩니다.
+           이제 이 페이지를 닫으셔도 됩니다.
          </p>
         </div>
       `,
-      data: { task: "screening_end", eligibility_status: "ineligible" }
+      choices: 'NO_KEYS',
+      trial_duration:null,
+      data: {block: 'screening_end', task: "screening_end", eligibility_status: "ineligible" }
     };
 
     const surveyToExperimentTransition = {
@@ -430,13 +438,83 @@
           <p class="survey-instruction">이어서 실험 과제가 진행됩니다.</p>
           <p style="font-weight:700;">아무 키나 누르면 계속됩니다.</p>
         </div>
-      `
+      `,
+      data: { block: 'survey_to_exp' }
     };
 
     return { introSurvey, demographicsTrial, ineligibleEnd, staiTrial, kspsTrial, ksiasTrial, cesdTrial, surveyToExperimentTransition };
   }
 
   const survey = buildSurveyTimeline();
+
+  const consentTrial = {
+  type: jsPsychHtmlKeyboardResponse,
+  choices: "NO_KEYS",
+  trial_duration: null,
+  stimulus: `
+    <div class="survey-card">
+      <h1>연구 동의서</h1>
+
+      <div class="survey-instruction">
+        <p>1. 나는 본 연구의 설명문을 읽었으며 담당 연구원과 이에 대하여 의논하였습니다.</p>
+        <p>2. 나는 위험과 이득에 관하여 이해하였습니다.</p>
+        <p>3. 나는 이 연구에 참여하는 것에 대하여 자발적으로 동의합니다.</p>
+        <p>4. 나는 이 연구에서 얻어진 나에 대한 정보를 현행 법률과 성신여자대학교 기관생명윤리위원회 규정이 허용하는 범위 내에서 연구자가 수집하고 처리하는데 동의합니다.</p>
+        <p>5. 나는 담당 연구자나 위임 받은 대리인이 연구를 진행하거나 결과 관리를 하는 경우와 연구기관, 연구비지원기관, 성신여자대학교 기관생명윤리위원회가 실태 조사를 하는 경우에는 비밀로 유지되는 나의 개인 신상 정보를 직접적으로 열람하는 것에 동의합니다.</p>
+        <p>6. 나는 언제라도 이 연구의 참여를 철회할 수 있고 이러한 결정이 나에게 어떠한 해도 되지 않을 것이라는 것을 압니다.</p>
+        <p>7. 나는 “동의함” 버튼을 클릭함으로써, 본 연구에 참여하는 데 동의하며 본 동의서에 포함된 내용을 이해하였음을 확인합니다.</p>
+      </div>
+
+      <div style="text-align:center; margin-top: 36px;">
+        <button id="consent-agree" class="jspsych-btn" style="margin-right: 16px; font-size: 18px; padding: 10px 24px;">
+          동의함
+        </button>
+
+        <button id="consent-disagree" class="jspsych-btn" style="font-size: 18px; padding: 10px 24px;">
+          동의하지 않음
+        </button>
+      </div>
+    </div>
+  `,
+  data: { block: "consent" },
+  on_load: function() {
+    const consentStartTime = performance.now();
+
+    document.querySelector("#consent-agree").addEventListener("click", function() {
+      jsPsych.finishTrial({
+        consent_response: "agree",
+        consent_given: true,
+        rt: Math.round(performance.now() - consentStartTime)
+      });
+    });
+
+    document.querySelector("#consent-disagree").addEventListener("click", function() {
+      jsPsych.finishTrial({
+        consent_response: "disagree",
+        consent_given: false,
+        rt: Math.round(performance.now() - consentStartTime)
+      });
+    });
+  }
+};
+
+const consentDeclinedEnd = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <div class="survey-card">
+      <h1>연구 참여가 종료되었습니다.</h1>
+
+      <p class="survey-instruction">
+        연구 참여에 동의하지 않으셨으므로 이후 설문 및 실험 과제는 진행되지 않습니다.<br><br>
+        연구에 관심을 가지고 접속해 주셔서 감사합니다.<br><br>
+        이제 이 페이지를 닫으셔도 됩니다.
+      </p>
+    </div>
+  `,
+  choices: "NO_KEYS",
+  trial_duration: null,
+  data: { block: "consent_declined" }
+};
 
   // =========================================================
   // B. 실험 파트
@@ -562,7 +640,8 @@
         <p>아래 버튼을 누르면 전체화면으로 전환됩니다.</p>
       </div>
     `,
-    button_label: '전체화면으로 시작하기'
+    button_label: '전체화면으로 시작하기',
+    data: {block:'fullscreen'}
   };
 
   // ---- 3. Preload ----
@@ -580,6 +659,7 @@
   message: '이미지를 불러오는 중입니다. 잠시만 기다려 주세요.',
   error_message: '이미지를 불러오지 못했습니다. 경로와 파일명을 확인해 주세요.',
   continue_after_error: false,
+  data:{ block: 'preload' },
   on_start: function() {
     document.body.classList.add('scroll-locked');  
   }
@@ -661,10 +741,11 @@ function countResponsesInSequence(sequenceUid) {
 }
 
   // ---- 5. 안내문 ----
-  function makeTextScreen(html) {
+  function makeTextScreen(html, blockName='instruction') {
     return {
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: `<div class="instruction-screen"><div class="instruction-box">${html}</div></div>`
+      stimulus: `<div class="instruction-screen"><div class="instruction-box">${html}</div></div>`,
+      data: {block:blockName}
     };
   }
 
@@ -680,7 +761,7 @@ function countResponsesInSequence(sequenceUid) {
     <br>
     <p>먼저 첫 번째 과제의 연습시행을 진행합니다.</p>
     <p>아무 키나 누르면 시작합니다.</p>
-  `);
+  `, 'dynamic_instruction');
 
   let dynamicPracticePassed = false;
   let practiceAttemptNumber = 0;
@@ -692,12 +773,14 @@ function countResponsesInSequence(sequenceUid) {
         return `
           <div class="instruction-screen"><div class="instruction-box">
             <h2>연습시행</h2>
-            <p>얼굴 표정이 연속적으로 변화합니다. 스페이스바를 아래와 같이 <strong>두 번</strong> 눌러주세요.</p>
-            <p>연습은 최대 ${MAX_PRACTICE_ATTEMPTS}번까지 시도할 수 있습니다.</p>
+            <p>얼굴 표정이 연속적으로 변화합니다.</p>
+            <p>각 시행에서 아래와 같이 스페이스바를 <strong>두 번</strong> 눌러주세요.</p>
             <br>
-            <p>1번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
-            <p>2번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+            <p>첫 번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+            <p>두 번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
             <br>
+            <p>먼저 총 4시행의 연습시행을 진행합니다.</p>
+            <p>연습은 참가자의 수행에 따라 4~20시행을 수행할 수 있습니다.</p>
             <p>아무 키나 누르면 연습시행이 시작됩니다.</p>
           </div></div>`;
       }
@@ -709,41 +792,55 @@ function countResponsesInSequence(sequenceUid) {
             절차에 충분히 익숙해지실 때까지 연습을 반복합니다.</p>
           </div>
           <p>스페이스바를 아래와 같이<strong style="color: rgb(192, 57, 43);"> 두 번</strong> 눌러주세요.</p>
-          <p>1번째: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
-          <p>2번째: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+          <p>첫 번째: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+          <p>두 번째: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
           <br>
           <p>아무 키나 누르면 연습시행을 다시 진행합니다.</p>
         </div></div>`;
     },
     choices: 'ALL_KEYS',
+    data: { block: 'dynamic_practice_instruction' },
     on_start: function() { practiceAttemptNumber++; }
   };
 
   const mainDynamicIntro = makeTextScreen(`
     <h2>첫 번째 과제 본 시행</h2>
     <p>연습시행이 끝났습니다.</p>
-    <p>이제 첫 번째 과제의 본 시행을 시작합니다. 각 시행에서 스페이스바를 <strong>두 번</strong> 누르세요.</p>
+    <p>이제 첫 번째 과제의 본 시행을 시작합니다.</p>
+    <p>각 시행에서 아래와 같이 스페이스바를 <strong>두 번</strong> 누르세요.</p>
     <br>
-    <p>1번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
-    <p>2번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
+    <p>첫 번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
+    <p>두 번째 응답: 다시 감정이 드러나기 시작했다고 느끼는 순간</p>
     <br>
     <p>아무 키나 누르면 시작합니다.</p>
-  `);
+  `, 'dynamic_main_instruction');
 
-  const dynamicPracticeFailedScreen = makeTextScreen(`
+  function makeTerminalScreen(html, blockName) {
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<div class="instruction-screen"><div class="instruction-box">${html}</div></div>`,
+    choices: 'NO_KEYS',
+    trial_duration: null,
+    data: { block: blockName }
+  };
+}
+
+  const dynamicPracticeFailedScreen = makeTerminalScreen(`
     <h2>참여가 어렵습니다</h2>
     <p>연습시행을 ${MAX_PRACTICE_ATTEMPTS}회 시도했지만, 절차를 정확히 수행하지 못했습니다.</p>
     <p>본 실험 데이터의 정확도를 위해, 아쉽지만 이후 실험을 진행할 수 없습니다.</p>
-    <p>참여해 주셔서 감사합니다. 이 창을 닫으셔도 됩니다.</p>
-  `);
+    <p>참여해 주셔서 감사합니다.</p>
+    <br>
+    <p><strong>이제 이 페이지를 닫으셔도 됩니다.</strong></p>
+  `, 'dynamic_practice_failed');
 
-  function makeBreakScreen(currentBlock, totalBlocks) {
+  function makeBreakScreen(currentBlock, totalBlocks, blockName = 'task_break') {
     const remainingBlocks = totalBlocks - currentBlock;
     return makeTextScreen(`
       <p>${currentBlock}번째 구간을 마쳤습니다.</p>
       <p>앞으로 ${remainingBlocks}개의 구간이 남았습니다.</p>
       <p>잠시 휴식하신 후, 준비되시면 아무 키나 눌러주세요.</p>
-    `);
+    `,blockName);
   }
 
   const randomIntro = makeTextScreen(`
@@ -758,7 +855,7 @@ function countResponsesInSequence(sequenceUid) {
   <br>
   <p>먼저 두 번째 과제의 연습시행을 진행합니다.</p>
   <p>아무 키나 누르면 시작합니다.</p>
-`);
+`, 'random_instruction');
 
   const mainRandomIntro = makeTextScreen(`
   <h2>두 번째 과제 본 시행</h2>
@@ -771,7 +868,7 @@ function countResponsesInSequence(sequenceUid) {
   <p><strong>오른쪽 화살표(→)</strong>: 행복</p>
   <br>
   <p>아무 키나 누르면 본 시행이 시작됩니다.</p>
-`);
+`, 'random_main_instruction');
 
   const contactInfoTrial = {
     type: jsPsychSurveyText,
@@ -830,6 +927,7 @@ function countResponsesInSequence(sequenceUid) {
       <p>이제 실험 페이지를 닫으셔도 됩니다.</p>
     </div></div>`,
     choices: 'NO_KEYS',
+    data: { block: 'end_screen' },
     trial_duration: null
   };
 
@@ -843,12 +941,13 @@ function countResponsesInSequence(sequenceUid) {
     });
   });
 
-  const practiceTrialsFlat = practiceSequenceBuilders.flatMap(b => b.trials);
+  const shuffledPracticeSequenceBuilders = jsPsych.randomization.shuffle(practiceSequenceBuilders);
+  const practiceTrialsFlat = shuffledPracticeSequenceBuilders.flatMap(b => b.trials);
 
   const practiceLoop = {
     timeline: [practiceIntro, ...practiceTrialsFlat],
     loop_function: function() {
-      const allPassed = practiceSequenceBuilders.every(b =>
+      const allPassed = shuffledPracticeSequenceBuilders.every(b =>
         countResponsesInSequence(b.getCurrentSequenceUid()) === 2
       );
       if (allPassed) {
@@ -880,19 +979,20 @@ function countResponsesInSequence(sequenceUid) {
 
   const dynamicTimelineTrials = [];
   shuffledDynamicConditions.forEach((cond, i) => {
-    const baseId = `dyn_${cond.set.set_id}_${cond.direction}_rep${cond.rep}`;
-    const { trials } = buildDynamicSequence(cond.direction, cond.set, cond.rep, baseId, false);
-    dynamicTimelineTrials.push(...trials);
+  const baseId = `dyn_${cond.set.set_id}_${cond.direction}_rep${cond.rep}`;
+  const { trials } = buildDynamicSequence(cond.direction, cond.set, cond.rep, baseId, false);
+  dynamicTimelineTrials.push(...trials);
 
-    const sequenceNumber = i + 1;
-    const isBreakPoint = sequenceNumber % DYNAMIC_BREAK_EVERY_N_SEQUENCES === 0;
-    const isLast = sequenceNumber === shuffledDynamicConditions.length;
-    if (isBreakPoint && !isLast) {
-      const currentBlock = sequenceNumber / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
-      const totalBlocks = shuffledDynamicConditions.length / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
-      dynamicTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks));
-    }
-  });
+  const sequenceNumber = i + 1;
+  const isBreakPoint = sequenceNumber % DYNAMIC_BREAK_EVERY_N_SEQUENCES === 0;
+  const isLast = sequenceNumber === shuffledDynamicConditions.length;
+
+  if (isBreakPoint && !isLast) {
+    const currentBlock = sequenceNumber / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
+    const totalBlocks = shuffledDynamicConditions.length / DYNAMIC_BREAK_EVERY_N_SEQUENCES;
+    dynamicTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks, 'dynamic_break'));
+  }
+});
 
   // ---- 8. Random 3AFC: 10 set x 11 level x 3 rep = 330 trials ----
   const randomConditions = [];
@@ -1100,6 +1200,7 @@ const randomPracticeIntro = {
     `;
   },
   choices: 'ALL_KEYS',
+  data: { block: 'random_practice_instruction' },
   on_finish: function() {
     randomPracticeAttemptNumber++;
     currentRandomPracticeConditions = jsPsych.randomization.shuffle([...randomPracticeConditionsBase]);
@@ -1133,7 +1234,7 @@ const randomPracticeLoop = {
     if (isBreakPoint && !isLast) {
       const currentBlock = trialNumber / RANDOM_BREAK_EVERY_N_TRIALS;
       const totalBlocks = shuffledRandomConditions.length / RANDOM_BREAK_EVERY_N_TRIALS;
-      randomTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks));
+      randomTimelineTrials.push(makeBreakScreen(currentBlock, totalBlocks, 'random_break'));
     }
   });
 
@@ -1188,7 +1289,7 @@ const randomPracticeLoop = {
             minimumDisplayTime
           ]);
           jsPsych.finishTrial({
-            save_status: 'succeess', 
+            save_status: 'success', 
             save_id: save_id
           });           
         } catch (error) {
@@ -1213,7 +1314,7 @@ const randomPracticeLoop = {
     timeline: [
       mainDynamicIntro,
       ...dynamicTimelineTrials,
-      makeTextScreen(`<p>첫 번째 과제가 끝났습니다.</p><p>잠시 휴식하신 후, 준비되시면 아무 키나 눌러주세요.</p>`),
+      makeTextScreen(`<p>첫 번째 과제가 끝났습니다.</p><p>잠시 휴식하신 후, 준비되시면 아무 키나 눌러주세요.</p>`,'between_tasks_break'),
       randomIntro,
       randomPracticeLoop,
       mainRandomIntro,
@@ -1253,13 +1354,41 @@ const randomPracticeLoop = {
     }
   };
 
-  const timeline = [
-    fullscreenTrial,
+  const consentDeclinedNode = {
+  timeline: [consentDeclinedEnd],
+  conditional_function: function() {
+    const consentData = jsPsych.data.get()
+      .filter({ block: "consent" })
+      .last(1)
+      .values()[0];
+
+    return consentData.consent_given === false;
+  }
+};
+
+const afterConsentNode = {
+  timeline: [
     survey.introSurvey,
     survey.demographicsTrial,
     ineligibleNode,
     eligibleFullExperimentNode
-  ];
+  ],
+  conditional_function: function() {
+    const consentData = jsPsych.data.get()
+      .filter({ block: "consent" })
+      .last(1)
+      .values()[0];
+
+    return consentData.consent_given === true;
+  }
+};
+
+const timeline = [
+  fullscreenTrial,
+  consentTrial,
+  consentDeclinedNode,
+  afterConsentNode
+];
 
   function replaceUndefinedWithNull(obj) {
     if (Array.isArray(obj)) {
