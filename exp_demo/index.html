@@ -1137,6 +1137,70 @@ const randomPracticeLoop = {
     }
   });
 
+  const save_data = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="instruction-screen">
+        <div class="instruction-box">
+          <p>데이터를 저장하고 있습니다.</p>
+          <p>저장이 완료될 때까지 이 페이지를 닫지 말아 주세요.</p>
+        </div>
+      </div>
+      `,
+    choices: "NO_KEYS",
+    trial_duration: null,
+      data: { block: 'data_saving'  },            
+      on_finish: async function(){  
+        try {
+          const now = new Date();                               
+          const timestamp =
+            now.getFullYear().toString() +
+            String(now.getMonth() + 1).padStart(2, '0') +
+            String(now.getDate()).padStart(2, '0') +
+            String(now.getHours()).padStart(2, '0') +
+            String(now.getMinutes()).padStart(2, '0') +
+            String(now.getSeconds()).padStart(2, '0') +
+            String(now.getMilliseconds()).padStart(3, '0');
+        
+          const save_id = participant_id + "_" + timestamp;
+          const saveData = replaceUndefinedWithNull(
+            jsPsych.data.get().filterCustom(function(trial) {
+              return trial.block !== 'contact_info' &&
+                      trial.block !== 'contact_saving';
+            }).values()
+          );
+          const interactionData = replaceUndefinedWithNull(
+              jsPsych.data.getInteractionData().values()
+          );
+          const savePromise = firebase.database()
+            .ref(`experiment_data/${save_id}`)
+            .set({
+              participant_id: participant_id,
+              data: saveData,
+              interaction_data: interactionData,
+              date: now.toString()
+            })
+          const minimumDisplayTime = new Promise(resolve => {
+            setTimeout(resolve, 3000);
+          })
+          await Promise.all([
+            savePromise,
+            minimumDisplayTime
+          ]);
+          jsPsych.finishTrial({
+            save_status: 'succeess', 
+            save_id: save_id
+          });           
+        } catch (error) {
+          console.error("Error saveing experimentla data:", error);
+          jsPsych.finishTrial({
+            save_status: 'failed',
+            save_error: String(error)
+          });
+        }           
+      }
+    }
+
   // =========================================================
   // 전체 timeline
   // =========================================================
@@ -1210,71 +1274,7 @@ const randomPracticeLoop = {
         return cleaned;
     }
     return obj;
-  }
-
-  const save_data = {
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `
-      <div class="instruction-screen">
-        <div class="instruction-box">
-          <p>데이터를 저장하고 있습니다.</p>
-          <p>저장이 완료될 때까지 이 페이지를 닫지 말아 주세요.</p>
-        </div>
-      </div>
-      `,
-    choices: "NO_KEYS",
-    trial_duration: null,
-      data: { block: 'data_saving'  },            
-      on_finish: async function(){  
-        try {
-          const now = new Date();                               
-          const timestamp =
-            now.getFullYear().toString() +
-            String(now.getMonth() + 1).padStart(2, '0') +
-            String(now.getDate()).padStart(2, '0') +
-            String(now.getHours()).padStart(2, '0') +
-            String(now.getMinutes()).padStart(2, '0') +
-            String(now.getSeconds()).padStart(2, '0') +
-            String(now.getMilliseconds()).padStart(3, '0');
-        
-          const save_id = participant_id + "_" + timestamp;
-          const saveData = replaceUndefinedWithNull(
-            jsPsych.data.get().filterCustom(function(trial) {
-              return trial.block !== 'contact_info' &&
-                      trial.block !== 'contact_saving';
-            }).values()
-          );
-          const interactionData = replaceUndefinedWithNull(
-              jsPsych.data.getInteractionData().values()
-          );
-          const savePromise = firebase.database()
-            .ref(`experiment_data/${save_id}`)
-            .set({
-              participant_id: participant_id,
-              data: saveData,
-              interaction_data: interactionData,
-              date: now.toString()
-            })
-          const minimumDisplayTime = new Promise(resolve => {
-            setTimeout(resolve, 3000);
-          })
-          await Promise.all([
-            savePromise,
-            minimumDisplayTime
-          ]);
-          jsPsych.finishTrial({
-            save_status: 'succeess', 
-            save_id: save_id
-          });           
-        } catch (error) {
-          console.error("Error saveing experimentla data:", error);
-          jsPsych.finishTrial({
-            save_status: 'failed',
-            save_error: String(error)
-          });
-        }           
-      }
-    }
+  }  
 
   jsPsych.run(timeline);
 </script>
