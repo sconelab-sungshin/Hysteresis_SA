@@ -710,7 +710,35 @@ const consentDeclinedEnd = {
 };
 
   // ---- 4. Dynamic 시퀀스 ----
- 
+  function buildFrameStimTiming(sequence, frameLookup, stimOnset) {
+  const frameStimTiming = [];
+
+  sequence.forEach((entry, index) => {
+    if (entry.stimulus === 'blank') return;
+
+    const lookup = frameLookup[entry.stimulus] || {};
+    const nextEntry = sequence[index + 1];
+
+    const onsetRel = entry.time;
+    const offsetRel = nextEntry && nextEntry.time > entry.time
+      ? nextEntry.time
+      : entry.time + IMAGE_DURATION_MS;
+
+    frameStimTiming.push({
+      sequence_position: lookup.sequence_position ?? null,
+      file_frame_number: lookup.file_frame_number ?? null,
+      stimulus: entry.stimulus,
+
+      stim_Onset: stimOnset === null ? null : Math.round(stimOnset + onsetRel),
+      stim_Offset: stimOnset === null ? null : Math.round(stimOnset + offsetRel),
+
+      stim_Onset_rt: Math.round(onsetRel),
+      stim_Offset_rt: Math.round(offsetRel)
+    });
+  });
+
+  return frameStimTiming;
+}
   function buildDynamicSequence(directionLabel, stimulusSet, repeat, baseSequenceId, isPractice) {
   const frames = makeDynamicFrames(stimulusSet.stim_path, directionLabel);
   let runNumber = 0;
@@ -718,7 +746,10 @@ const consentDeclinedEnd = {
 
   const frameLookup = {};
   frames.forEach((f, idx) => {
-    frameLookup[f.src] = { sequence_position: idx + 1, file_frame_number: f.file_frame_number };
+    frameLookup[f.src] = { 
+      sequence_position: idx + 1, 
+      file_frame_number: f.file_frame_number 
+    };
   });
 
   const baseData = (extra) => () => ({
@@ -732,12 +763,17 @@ const consentDeclinedEnd = {
     ...extra
   });
 
+  let stimOnset = null;
+  let stimOffset = null;
+
   const itiTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: '<div class="iti-screen"></div>',
     choices: 'NO_KEYS',
     trial_duration: ITI_DURATION_MS,
-    on_start: function() { runNumber++; },
+    on_start: function() { 
+      runNumber++; 
+    },
     data: baseData({ phase: 'iti' })
   };
 
@@ -749,32 +785,54 @@ const consentDeclinedEnd = {
     choices: [' '],
     render_on_canvas: false, 
     data: baseData({ phase: 'animation' }),
+
+    on_load: function() {
+      stimOnset = performance.now();
+    },
+
     on_finish: function(data) {
+      stimOffset = performance.now();
+
+      data.stim_Onset = stimOnset === null ? null : Math.round(stimOnset);
+      data.stim_Offset = stimOffset === null ? null : Math.round(stimOffset);
+
       const responses = data.response || [];
       const sequence = data.animation_sequence || [];
 
+      data.frame_stim_timing = buildFrameStimTiming(sequence, frameLookup, stimOnset);
+
       function resolveByTime(rt) {
         let matched = null;
+
         for (const entry of sequence) {
           if (entry.time > rt) break;
           if (entry.stimulus !== 'blank') matched = entry;
         }
+
         return matched ? frameLookup[matched.stimulus] : null;
       }
 
-      const resolved = responses.map(r => ({ ...(resolveByTime(r.rt) || {}), rt: r.rt }));
+      const resolved = responses.map(r => ({
+        ...(resolveByTime(r.rt) || {}),
+        rt: r.rt
+      }));
 
       data.response_count = resolved.length;
+
       data.first_response_sequence_position = resolved[0]?.sequence_position ?? null;
       data.first_response_file_frame = resolved[0]?.file_frame_number ?? null;
       data.first_response_rt = resolved[0]?.rt ?? null;
+
       data.second_response_sequence_position = resolved[1]?.sequence_position ?? null;
       data.second_response_file_frame = resolved[1]?.file_frame_number ?? null;
       data.second_response_rt = resolved[1]?.rt ?? null;
     }
   }, [' ']);
 
-  return { trials: [itiTrial, animationTrial], getCurrentSequenceUid: currentSequenceUid };
+  return { 
+    trials: [itiTrial, animationTrial], 
+    getCurrentSequenceUid: currentSequenceUid 
+  };
 }
 
 function countResponsesInSequence(sequenceUid) {
@@ -1025,6 +1083,9 @@ function makeDynamicPracticeSequenceSlot(slotIndex) {
     };
   }
 
+  let stimOnset = null;
+  let stimOffset = null;
+
   const itiTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: '<div class="iti-screen"></div>',
@@ -1047,10 +1108,22 @@ function makeDynamicPracticeSequenceSlot(slotIndex) {
     data: function() {
       return makePracticeData('animation');
     },
+
+    on_load: function() {
+      stimOnset = performance.now();
+    },
+
     on_finish: function(data) {
+      stimOffset = performance.now();
+
+      data.stim_Onset = stimOnset === null ? null : Math.round(stimOnset);
+      data.stim_Offset = stimOffset === null ? null : Math.round(stimOffset);
+
       const condition = getCondition();
       const responses = data.response || [];
       const sequence = data.animation_sequence || [];
+
+      data.frame_stim_timing = buildFrameStimTiming(sequence, condition.frameLookup, stimOnset);
 
       function resolveByTime(rt) {
         let matched = null;
@@ -1069,9 +1142,11 @@ function makeDynamicPracticeSequenceSlot(slotIndex) {
       }));
 
       data.response_count = resolved.length;
+
       data.first_response_sequence_position = resolved[0]?.sequence_position ?? null;
       data.first_response_file_frame = resolved[0]?.file_frame_number ?? null;
       data.first_response_rt = resolved[0]?.rt ?? null;
+
       data.second_response_sequence_position = resolved[1]?.sequence_position ?? null;
       data.second_response_file_frame = resolved[1]?.file_frame_number ?? null;
       data.second_response_rt = resolved[1]?.rt ?? null;
@@ -1165,6 +1240,9 @@ const practiceLoop = {
   const shuffledRandomConditions = jsPsych.randomization.shuffle(randomConditions);
 
  function makeRandom3AFCTrials(condition) {
+  let stimOnset = null;
+  let stimOffset = null;
+
   const commonData = {
     block: 'random_3afc',
     order_condition: 'random',
@@ -1205,19 +1283,32 @@ const practiceLoop = {
       },
 
       on_load: function() {
+        stimOnset = performance.now();
+
         setTimeout(function() {
-          const area = document.querySelector('#random-stimulus-area');
-          if (area) {
-            area.innerHTML = '<div class="iti-screen"></div>';
-          }
-        }, RANDOM_IMAGE_DURATION_MS);
-      },
+          stimOffset = performance.now();
+
+        const area = document.querySelector('#random-stimulus-area');
+        if (area) {
+          area.innerHTML = '<div class="iti-screen"></div>';
+        }
+      }, RANDOM_IMAGE_DURATION_MS);
+},
 
       on_finish: function(data) {
-        data.response_label = keyToResponseLabel(data.response);
-        data.correct = data.response_label === null
-          ? null
-          : data.response_label === condition.true_category;
+       data.stim_Onset = Math.round(stimOnset);
+       data.stim_Offset = stimOffset === null
+        ? null
+        : Math.round(stimOffset);
+
+      data.responded_during_stim = data.rt === null
+       ? null
+       : data.rt <= RANDOM_IMAGE_DURATION_MS;
+
+      data.response_label = keyToResponseLabel(data.response);
+      data.correct = data.response_label === null
+        ? null
+        : data.response_label === condition.true_category;
       }
     }
   ];
@@ -1253,6 +1344,9 @@ let randomPracticeAttemptNumber = 0;
 let currentRandomPracticeConditions = [];
 
 function makeRandomPracticeTrial(slotIndex) {
+  let stimOnset = null;
+  let stimOffset = null;
+
   return {
     type: jsPsychHtmlKeyboardResponse,
 
@@ -1275,18 +1369,29 @@ function makeRandomPracticeTrial(slotIndex) {
       phase: 'random_trial'
     },
 
-    on_load: function() {
-      setTimeout(function() {
-        const area = document.querySelector('#random-stimulus-area');
-        if (area) {
-          area.innerHTML = '<div class="iti-screen"></div>';
-        }
-      }, RANDOM_IMAGE_DURATION_MS);
-    },
+  on_load: function() {
+    stimOnset = performance.now();
+
+  setTimeout(function() {
+    stimOffset = performance.now();
+
+    const area = document.querySelector('#random-stimulus-area');
+    if (area) {
+      area.innerHTML = '<div class="iti-screen"></div>';
+    }
+  }, RANDOM_IMAGE_DURATION_MS);
+},
 
     on_finish: function(data) {
       const condition = currentRandomPracticeConditions[slotIndex];
 
+      data.stim_Onset = Math.round(stimOnset);
+      data.stim_Offset = stimOffset === null
+        ? null
+        : Math.round(stimOffset);
+      data.responded_during_stim = data.rt === null
+        ? null
+        : data.rt <= RANDOM_IMAGE_DURATION_MS;
       data.practice_attempt = randomPracticeAttemptNumber;
       data.practice_slot = slotIndex + 1;
       data.trial_id = condition.trial_id;
