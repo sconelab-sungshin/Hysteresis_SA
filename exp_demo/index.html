@@ -134,7 +134,7 @@
   // 0. jsPsych
   // =========================================================
   const jsPsych = initJsPsych({
-    show_progress_bar: true
+    show_progress_bar: false
   });
 
   const participant_id = jsPsych.randomization.randomID(10);
@@ -570,12 +570,12 @@ const consentDeclinedEnd = {
   const N_FRAMES = 31;
   const FRAME_NUMBER_DIGITS = 2;
 
-  const ITI_DURATION_MS = 700;
+  const ITI_DURATION_MS = 1000;
   const FIXATION_DURATION_MS = 200;
   const IMAGE_DURATION_MS = 300;
   const DYNAMIC_REPS = 4;
   const RANDOM_IMAGE_DURATION_MS = 1200;
-  const RANDOM_GAP_DURATION_MS = 400;
+  const RANDOM_GAP_DURATION_MS = 600;
   const RANDOM_REPS = 3;
   const DYNAMIC_BREAK_EVERY_N_SEQUENCES = 20;
   const RANDOM_BREAK_EVERY_N_TRIALS = 110;
@@ -768,7 +768,7 @@ const consentDeclinedEnd = {
 
   const itiTrial = {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: '<div class="iti-screen"></div>',
+    stimulus: '<div class="fixation-cross">+</div>',
     choices: 'NO_KEYS',
     trial_duration: ITI_DURATION_MS,
     on_start: function() { 
@@ -1036,7 +1036,13 @@ function countResponsesInSequence(sequenceUid) {
     trial_duration: null
   };
 
-  // ---- 6. 연습 시행: 2 set x 2 direction = 4 sequences ----
+  const exitFullscreenTrial = {
+  type: jsPsychFullscreen,
+  fullscreen_mode: false,
+  data: { block: 'fullscreen_exit' }
+};
+
+  // ---- 6. 연습 시행 ----
   const dynamicPracticeConditionsBase = [];
 
 TRAINING_STIMULUS_SETS.forEach((trainingSet, setIdx) => {
@@ -1088,7 +1094,7 @@ function makeDynamicPracticeSequenceSlot(slotIndex) {
 
   const itiTrial = {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: '<div class="iti-screen"></div>',
+    stimulus: '<div class="fixation-cross">+</div>',
     choices: 'NO_KEYS',
     trial_duration: ITI_DURATION_MS,
     data: function() {
@@ -1242,6 +1248,8 @@ const practiceLoop = {
  function makeRandom3AFCTrials(condition) {
   let stimOnset = null;
   let stimOffset = null;
+  let randomKeyResponses = [];
+  let randomKeyRecorderId = null;
 
   const commonData = {
     block: 'random_3afc',
@@ -1282,20 +1290,50 @@ const practiceLoop = {
         total_trial_duration_ms: RANDOM_IMAGE_DURATION_MS + RANDOM_GAP_DURATION_MS
       },
 
-      on_load: function() {
-        stimOnset = performance.now();
+on_load: function() {
+  stimOnset = performance.now();
+  randomKeyResponses = [];
+  randomKeyRecorderId = null;
 
-        setTimeout(function() {
-          stimOffset = performance.now();
+  randomKeyRecorderId = jsPsych.pluginAPI.getKeyboardResponse({
+    callback_function: function(info) {
+      const rt = Math.round(performance.now() - stimOnset);
 
-        const area = document.querySelector('#random-stimulus-area');
-        if (area) {
-          area.innerHTML = '<div class="iti-screen"></div>';
-        }
-      }, RANDOM_IMAGE_DURATION_MS);
+      randomKeyResponses.push({
+        response_index: randomKeyResponses.length + 1,
+        key: info.key,
+        rt: rt,
+        response_label: keyToResponseLabel(info.key),
+        responded_during_stim: rt <= RANDOM_IMAGE_DURATION_MS
+      });
+    },
+    valid_responses: RESPONSE_KEYS_3AFC,
+    rt_method: 'performance',
+    persist: true,
+    allow_held_key: false
+  });
+
+  setTimeout(function() {
+    stimOffset = performance.now();
+
+    const area = document.querySelector('#random-stimulus-area');
+    if (area) {
+      area.innerHTML = '<div class="iti-screen"></div>';
+    }
+  }, RANDOM_IMAGE_DURATION_MS);
 },
 
-      on_finish: function(data) {
+on_finish: function(data) {
+  if (randomKeyRecorderId !== null) {
+    jsPsych.pluginAPI.cancelKeyboardResponse(randomKeyRecorderId);
+    randomKeyRecorderId = null;
+  }
+
+       data.all_responses = randomKeyResponses;
+       data.response_count = randomKeyResponses.length;
+       data.extra_response_count = Math.max(0, randomKeyResponses.length - 1);
+       data.multiple_response = randomKeyResponses.length > 1;
+
        data.stim_Onset = Math.round(stimOnset);
        data.stim_Offset = stimOffset === null
         ? null
@@ -1346,6 +1384,8 @@ let currentRandomPracticeConditions = [];
 function makeRandomPracticeTrial(slotIndex) {
   let stimOnset = null;
   let stimOffset = null;
+  let randomKeyResponses = [];
+  let randomKeyRecorderId = null;
 
   return {
     type: jsPsychHtmlKeyboardResponse,
@@ -1369,8 +1409,28 @@ function makeRandomPracticeTrial(slotIndex) {
       phase: 'random_trial'
     },
 
-  on_load: function() {
-    stimOnset = performance.now();
+on_load: function() {
+  stimOnset = performance.now();
+  randomKeyResponses = [];
+  randomKeyRecorderId = null;
+
+  randomKeyRecorderId = jsPsych.pluginAPI.getKeyboardResponse({
+    callback_function: function(info) {
+      const rt = Math.round(performance.now() - stimOnset);
+
+      randomKeyResponses.push({
+        response_index: randomKeyResponses.length + 1,
+        key: info.key,
+        rt: rt,
+        response_label: keyToResponseLabel(info.key),
+        responded_during_stim: rt <= RANDOM_IMAGE_DURATION_MS
+      });
+    },
+    valid_responses: RESPONSE_KEYS_3AFC,
+    rt_method: 'performance',
+    persist: true,
+    allow_held_key: false
+  });
 
   setTimeout(function() {
     stimOffset = performance.now();
@@ -1382,13 +1442,23 @@ function makeRandomPracticeTrial(slotIndex) {
   }, RANDOM_IMAGE_DURATION_MS);
 },
 
-    on_finish: function(data) {
-      const condition = currentRandomPracticeConditions[slotIndex];
+on_finish: function(data) {
+  if (randomKeyRecorderId !== null) {
+    jsPsych.pluginAPI.cancelKeyboardResponse(randomKeyRecorderId);
+    randomKeyRecorderId = null;
+  }
+
+  const condition = currentRandomPracticeConditions[slotIndex];
+
+      data.all_responses = randomKeyResponses;
+      data.response_count = randomKeyResponses.length;
+      data.extra_response_count = Math.max(0, randomKeyResponses.length - 1);
+      data.multiple_response = randomKeyResponses.length > 1;
 
       data.stim_Onset = Math.round(stimOnset);
       data.stim_Offset = stimOffset === null
-        ? null
-        : Math.round(stimOffset);
+    ? null
+    : Math.round(stimOffset);
       data.responded_during_stim = data.rt === null
         ? null
         : data.rt <= RANDOM_IMAGE_DURATION_MS;
@@ -1564,8 +1634,8 @@ const randomPracticeLoop = {
   // 전체 timeline
   // =========================================================
     const dynamicPracticeFailedNode = {
-    timeline: [save_data, dynamicPracticeFailedScreen],
-    conditional_function: function() { return !dynamicPracticePassed; }
+      timeline: [save_data, exitFullscreenTrial, dynamicPracticeFailedScreen],
+     conditional_function: function() { return !dynamicPracticePassed; }
   };
 
     const afterDynamicPracticeNode = {
@@ -1580,14 +1650,15 @@ const randomPracticeLoop = {
       contactInfoTrial,
       save_contact_data,
       save_data,
+      exitFullscreenTrial,
       endScreen
     ],
     conditional_function: function() { return dynamicPracticePassed; }
-  };
+};
 
   const ineligibleNode = {
-  timeline: [save_data, survey.ineligibleEnd],
-  conditional_function: function() {
+    timeline: [save_data, exitFullscreenTrial, survey.ineligibleEnd],
+    conditional_function: function() {
     const demoData = jsPsych.data.get().filter({ scale_id: "demographics" }).last(1).values()[0];
     return demoData.eligible === false;
   }
@@ -1610,11 +1681,11 @@ const randomPracticeLoop = {
       const demoData = jsPsych.data.get().filter({ scale_id: "demographics" }).last(1).values()[0];
       return demoData.eligible === true;
     }
-  };
+};
 
   const consentDeclinedNode = {
-  timeline: [consentDeclinedEnd],
-  conditional_function: function() {
+    timeline: [exitFullscreenTrial, consentDeclinedEnd],
+    conditional_function: function() {
     const consentData = jsPsych.data.get()
       .filter({ block: "consent" })
       .last(1)
