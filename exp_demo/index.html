@@ -152,6 +152,12 @@
       { value: 3, label: "자주<br>그렇다" },
       { value: 4, label: "언제나<br>그렇다" }
     ];
+    const staiStateOptions = [
+     { value: 1, label: "전혀<br>그렇지<br>않다" },
+     { value: 2, label: "조금<br>그렇다" },
+     { value: 3, label: "보통<br>그렇다" },
+     { value: 4, label: "많이<br>그렇다" }
+    ];
     const socialAnxietyOptions = [
       { value: 0, label: "전혀<br>그렇지<br>않다" },
       { value: 1, label: "그렇지<br>않다" },
@@ -175,6 +181,14 @@
       "나는 어렵지 않게 일을 결정한다.", "나는 자신이 부적절하다고 느낀다.", "나는 만족스럽다.",
       "나는 사소한 생각으로 마음을 쓰고 괴로워한다.", "나는 한 번 낙담하면 헤어나기 힘들다.",
       "나는 쉽게 동요하지 않는다.", "나는 당면한 문제들로 긴장되고 짜증스럽다."
+    ];
+
+    const staiStateItems = [
+  "나는 평온하다.","나는 안전하다.","나는 긴장되어 있다.","나는 긴장감을 느낀다.","나는 편안함을 느낀다.",
+  "나는 언짢다.", "나는 닥쳐올지도 모를 불행을 지금 걱정하고 있다.", "나는 흡족하다.", "나는 두렵다.",
+  "나는 포근함을 느낀다.", "나는 자신감이 있다.", "나는 초조하다.", "나는 안절부절하다.",
+  "나는 무엇을 어찌해야 좋을지 모르겠다.", "나는 느긋한 기분이다.", "나는 만족스럽다.",
+  "나는 걱정이 많다.","나는 혼란스럽다.","나는 마음이 동요되지 않고 안정되어 있다.", "나는 유쾌하다."
     ];
 
     const kspsItems = [
@@ -293,14 +307,24 @@
         <div class="survey-card">
           <h1>설문지</h1>
           <p class="survey-instruction">
-            다음 설문은 평소에 느끼는 정서 및 사회적 상황에서의 생각과 감정에 관한 문항으로 구성되어 있습니다.<br>
-            각 문항을 주의 깊게 읽고, 본인에게 가장 잘 해당하는 보기를 선택해 주십시오.
+            다음 설문은 현재 또는 평소에 느끼는 정서 및 사회적 상황에서의 생각과 감정에 관한 문항으로 구성되어 있습니다.<br>
+            각 설문의 안내문과 문항을 주의 깊게 읽고, 본인에게 가장 잘 해당하는 보기를 선택해 주십시오.
           </p>
           <p style="text-align:center; font-weight:700;">아무 키나 누르면 시작합니다.</p>
         </div>
       `,
       data: { block: 'survey_intro' }
     };
+
+    const staiStateTrial = makeLikertTrial({
+     scaleId: "STAI_State",
+     title: "상태 불안 척도(STAI-State)",
+     instruction: `다음 각 문항을 잘 읽으시고 바로 지금 이 순간 느끼고 있는 상태를 가장 잘 나타내는 보기를 선택해 주십시오.
+     각 문항에 오래 머무르지 마시고 현재의 느낌에 가장 가까운 응답을 선택해 주십시오.`,
+     items: staiStateItems,
+     options: staiStateOptions,
+     namePrefix: "stai_s"
+    });
 
     const staiTrial = makeLikertTrial({ 
       scaleId: "STAI_Trait", 
@@ -442,7 +466,17 @@
       data: { block: 'survey_to_exp' }
     };
 
-    return { introSurvey, demographicsTrial, ineligibleEnd, staiTrial, kspsTrial, ksiasTrial, cesdTrial, surveyToExperimentTransition };
+    return { 
+      introSurvey, 
+      demographicsTrial, 
+      ineligibleEnd, 
+      staiStateTrial,
+      staiTrial, 
+      kspsTrial, 
+      ksiasTrial, 
+      cesdTrial, 
+      surveyToExperimentTransition 
+    };
   }
 
   const survey = buildSurveyTimeline();
@@ -851,6 +885,17 @@ function countResponsesInSequence(sequenceUid) {
     };
   }
 
+  const socialScenario = makeTextScreen(`
+  <p>자신이 지금 <strong>낯선 사람들 앞에서 발표를 하고 있는 상황</strong>이라고
+    상상해 주십시오. </p>
+
+  <p>앞으로 화면에 나타나는 인물들은 <strong>자신의 발표를 듣고 있는 청중 중 한 사람</strong>이라고 생각해 주십시오.</p>
+  <p>화면에 나타나는 표정은 자신의 발표를 보고 있는 <strong>청중의 반응</strong>이라고 상상해 주십시오.</p>
+  <br>
+  <p><strong>상황을 충분히 상상하셨다면 아무 키나 눌러 주십시오.</strong></p>
+  <p>다음 화면에서 과제 수행 방법을 안내해 드리겠습니다.</p>
+`, 'social_scenario');
+
   const instruction = makeTextScreen(`
     <h2>실험 과제 안내</h2>
     <p>이 실험에서는 총 두 개의 과제를 진행합니다.</p>
@@ -860,6 +905,9 @@ function countResponsesInSequence(sequenceUid) {
     <p><strong style="color: rgb(43, 108, 176);">무표정이 시작됐다고 느끼는 순간</strong> 스페이스바를 한 번 누르세요.</p>
     <p>그 후, 다시 <strong style="color: rgb(43, 108, 176);">감정이 드러나기 시작했다고 느끼는 순간</strong> 스페이스바를 한 번 더 누르세요.</p>
     <p>버튼을 누른 시점에는 자극 아래에 파란 체크 표시가 나타납니다.</p>
+    <br>
+    <p>실험이 시작되면 지정된 휴식 시간을 제외하고는 현재 자리에서 과제를 진행해 주시고,
+      다른 브라우저 탭이나 프로그램으로 전환하지 말아 주십시오. </p>
     <br>
     <p>먼저 첫 번째 과제의 연습시행을 진행합니다.</p>
     <p>아무 키나 누르면 시작합니다.</p>
@@ -1666,12 +1714,14 @@ const randomPracticeLoop = {
 
   const eligibleFullExperimentNode = {
     timeline: [
+      survey.staiStateTrial,
       survey.staiTrial,
       survey.kspsTrial,
       survey.ksiasTrial,
       survey.cesdTrial,
       survey.surveyToExperimentTransition,
       preload,
+      socialScenario,
       instruction,
       practiceLoop,
       dynamicPracticeFailedNode,
