@@ -9,12 +9,13 @@
   <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.1.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-browser-check@2.1.0"></script>  
   <script src="https://unpkg.com/@jspsych/plugin-survey-text@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.1.0"></script>
   <script src="https://unpkg.com/@jspsych/plugin-animation@2.1.0"></script>
   <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-database.js"></script>   
+  <script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-database.js"></script> 
   <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet" type="text/css" />
 
   <style>
@@ -708,6 +709,92 @@ const consentDeclinedEnd = {
     return frames;
   }
 
+  // ---- Browser / device check ----
+const browserCheckTrial = {
+  type: jsPsychBrowserCheck,
+
+  features: [
+    'width',
+    'height',
+    'browser',
+    'browser_version',
+    'mobile',
+    'os',
+    'fullscreen'
+  ],
+
+  inclusion_function: (data) => {
+    return data.mobile === false &&
+           (data.browser === 'chrome' || data.browser === 'edge') &&
+           data.fullscreen === true;
+  },
+
+  exclusion_message: (data) => {
+
+    if (data.mobile) {
+      return `
+        <div class="survey-card">
+          <h2>연구 참여가 어렵습니다.</h2>
+
+          <p class="survey-instruction">
+            본 연구는 스마트폰 또는 태블릿에서는 진행할 수 없습니다.<br><br>
+            노트북 또는 데스크톱 컴퓨터에서
+            <strong>Chrome 또는 Microsoft Edge 브라우저</strong>를 이용하여 다시 접속해 주십시오.
+          </p>
+        </div>
+      `;
+    }
+
+    const allowedBrowser =
+      data.browser === 'chrome' ||
+      data.browser === 'edge';
+
+    if (!allowedBrowser) {
+      return `
+        <div class="survey-card">
+          <h2>브라우저 변경이 필요합니다.</h2>
+
+          <p class="survey-instruction">
+            본 연구의 실험 과제를 정상적으로 수행하기 위해
+            <strong>Chrome 또는 Microsoft Edge 브라우저</strong>를 사용해 주십시오.<br><br>
+            Chrome 브라우저에서 실험 링크에 다시 접속해 주십시오.
+          </p>
+        </div>
+      `;
+    }
+
+    if (data.fullscreen !== true) {
+      return `
+        <div class="survey-card">
+          <h2>연구 참여가 어렵습니다.</h2>
+
+          <p class="survey-instruction">
+            현재 사용 중인 브라우저 환경에서는
+            본 연구에 필요한 전체화면 기능을 사용할 수 없습니다.<br><br>
+            노트북 또는 데스크톱 컴퓨터에서
+            Chrome 또는 Microsoft Edge 브라우저를 이용하여 다시 접속해 주십시오.
+          </p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="survey-card">
+        <h2>연구 참여가 어렵습니다.</h2>
+
+        <p class="survey-instruction">
+          현재 사용 중인 환경에서는 실험을 진행할 수 없습니다.<br>
+          노트북 또는 데스크톱 컴퓨터에서 Chrome 또는 Microsoft Edge 브라우저를 이용해 주십시오.
+        </p>
+      </div>
+    `;
+  },
+
+  data: {
+    block: 'browser_check'
+  }
+};
+
   // ---- 2. Fullscreen ----
   const fullscreenTrial = {
     type: jsPsychFullscreen,
@@ -889,7 +976,7 @@ function countResponsesInSequence(sequenceUid) {
   <p>자신이 지금 <strong>낯선 사람들 앞에서 발표를 하고 있는 상황</strong>이라고
     상상해 주십시오. </p>
 
-  <p>앞으로 화면에 나타나는 인물들은 <strong>자신의 발표를 듣고 있는 청중 중 한 사람</strong>이라고 생각해 주십시오.</p>
+  <p>잠시후 진행할 과제에서 화면에 나타나는 인물들은 <strong>자신의 발표를 듣고 있는 청중 중 한 사람</strong>이라고 생각해 주십시오.</p>
   <p>화면에 나타나는 표정은 자신의 발표를 보고 있는 <strong>청중의 반응</strong>이라고 상상해 주십시오.</p>
   <br>
   <p><strong>상황을 충분히 상상하셨다면 아무 키나 눌러 주십시오.</strong></p>
@@ -1763,6 +1850,7 @@ const afterConsentNode = {
 };
 
 const timeline = [
+  browserCheckTrial,
   fullscreenTrial,
   studyDescriptionTrial,
   consentTrial,
