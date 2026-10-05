@@ -801,9 +801,9 @@ const browserCheckTrial = {
   ],
 
 inclusion_function: (data) => {
-  return data.mobile === false &&
-         data.fullscreen === true;
+  return data.mobile === false;
 },
+  
   exclusion_message: (data) => {
     return `
       <div class="survey-card">
