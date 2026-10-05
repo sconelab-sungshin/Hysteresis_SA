@@ -258,78 +258,128 @@
       `;
     }
 
-    function makeLikertTrial({ scaleId, title, instruction, items, options, namePrefix }) {
-      let itemFirstResponseTimes = {};
-      let responseEvents = [];
+function makeLikertTrial({ scaleId, title, instruction, items, options, namePrefix }) {
 
-      return {
-        type: jsPsychSurveyHtmlForm,
-        preamble: "",
-        html: `<div class="survey-card"><h2>${title}</h2><div class="survey-instruction">${instruction}</div>${makeLikertHtml(items, options, namePrefix)}</div>`,
-        button_label: "다음",
-        autocomplete: false,
-        data: { block: `Q_${scaleId}`, task: "questionnaire", scale_id: scaleId },
-        on_load: function() {
-          const button = document.querySelector("#jspsych-survey-html-form-next");
-          const warning = document.querySelector(`#${namePrefix}_warning`);
-          const progress = document.querySelector(`#${namePrefix}_progress`);
-          const trialStartTime = performance.now();
-          itemFirstResponseTimes = {};
-          responseEvents = [];
+  let itemFirstResponseTimes = {};
+  let responseEvents = [];
 
-          function updateProgress() {
-            let answered = 0;
-            for (let i = 1; i <= items.length; i++) {
-              const qName = `${namePrefix}_${String(i).padStart(2, "0")}`;
-              if (document.querySelector(`input[name="${qName}"]:checked`)) answered++;
-            }
-            progress.textContent = `응답: ${answered} / ${items.length}`;
-            if (answered === items.length) { warning.style.display = "none"; button.disabled = false; }
-            else { warning.style.display = "block"; button.disabled = true; }
+  return {
+    type: jsPsychSurveyHtmlForm,
+    preamble: "",
+    html: `<div class="survey-card">
+             <h2>${title}</h2>
+             <div class="survey-instruction">${instruction}</div>
+             ${makeLikertHtml(items, options, namePrefix)}
+           </div>`,
+
+    button_label: "다음",
+    autocomplete: false,
+    data: {
+      block: `Q_${scaleId}`,
+      task: "questionnaire",
+      scale_id: scaleId
+    },
+
+    on_load: function() {
+      const button =
+        document.querySelector("#jspsych-survey-html-form-next");
+      const warning =
+        document.querySelector(`#${namePrefix}_warning`);
+      const progress =
+        document.querySelector(`#${namePrefix}_progress`);
+      const trialStartTime = performance.now();
+
+      itemFirstResponseTimes = {};
+      responseEvents = [];
+
+
+      function updateProgress() {
+        let answered = 0;
+        for (let i = 1; i <= items.length; i++) {
+          const qName =
+            `${namePrefix}_${String(i).padStart(2, "0")}`;
+          if (
+            document.querySelector(
+              `input[name="${qName}"]:checked`
+            )
+          ) {
+            answered++;
           }
+        }
 
-          document.querySelectorAll(`input[type="radio"][name^="${namePrefix}_"]`)
-            .forEach(input => {
-              input.addEventListener("change", function() {
+        progress.textContent =
+          `응답: ${answered} / ${items.length}`;
 
-              const now = performance.now();
-              const cumulativeRt = now - trialStartTime;
+        if (answered === items.length) {
+          warning.style.display = "none";
+          button.disabled = false;
+        } else {
+          warning.style.display = "block";
+          button.disabled = true;
+        }
+      }
 
-              const previousEvent =
-               responseEvents.length > 0
-               ? responseEvents[responseEvents.length - 1]
-               : null;
 
-              const interResponseRt =
-               previousEvent === null
-               ? cumulativeRt
-               : cumulativeRt - previousEvent.cumulative_rt_ms;
+      document
+        .querySelectorAll(
+          `input[type="radio"][name^="${namePrefix}_"]`
+        )
+        .forEach(input => {
+          input.addEventListener("change", function() {
+            const now = performance.now();
+            const cumulativeRt =
+              now - trialStartTime;
+            const previousEvent =
+              responseEvents.length > 0
+                ? responseEvents[responseEvents.length - 1]
+                : null;
+            const interResponseRt =
+              previousEvent === null
+                ? cumulativeRt
+                : cumulativeRt -
+                  previousEvent.cumulative_rt_ms;
 
-              if (!(input.name in itemFirstResponseTimes)) {
-               itemFirstResponseTimes[input.name] =
-               Math.round(cumulativeRt);
-              }
+            if (!(input.name in itemFirstResponseTimes)) {
 
-             responseEvents.push({
+              itemFirstResponseTimes[input.name] =
+                Math.round(cumulativeRt);
+            }
+
+
+            responseEvents.push({
               item: input.name,
               value: Number(input.value),
-              cumulative_rt_ms: Math.round(cumulativeRt),
-              inter_response_rt_ms: Math.round(interResponseRt)
+              cumulative_rt_ms:
+                Math.round(cumulativeRt),
+              inter_response_rt_ms:
+                Math.round(interResponseRt)
             });
 
-             updateProgress();
-           });
+
+            updateProgress();
+
+          });
+
+        });
+
+
+      updateProgress();
+
+    },
+
 
     on_finish: function(data) {
       data.n_items_answered =
-      Object.keys(data.response || {}).length;
-
+        Object.keys(data.response || {}).length;
       data.item_first_response_times_ms =
         itemFirstResponseTimes;
-
       data.response_events =
         responseEvents;
     }
+
+  };
+
+}
 
     const introSurvey = {
       type: jsPsychHtmlKeyboardResponse,
@@ -750,11 +800,10 @@ const browserCheckTrial = {
     'fullscreen'
   ],
 
-  inclusion_function: (data) => {
+inclusion_function: (data) => {
   return data.mobile === false &&
          data.fullscreen === true;
-  }
-
+},
   exclusion_message: (data) => {
     return `
       <div class="survey-card">
