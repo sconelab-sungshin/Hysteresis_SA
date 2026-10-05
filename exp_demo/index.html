@@ -259,7 +259,8 @@
     }
 
     function makeLikertTrial({ scaleId, title, instruction, items, options, namePrefix }) {
-      let itemResponseTimes = {}; 
+      let itemFirstResponseTimes = {};
+      let responseEvents = [];
 
       return {
         type: jsPsychSurveyHtmlForm,
@@ -273,7 +274,8 @@
           const warning = document.querySelector(`#${namePrefix}_warning`);
           const progress = document.querySelector(`#${namePrefix}_progress`);
           const trialStartTime = performance.now();
-          itemResponseTimes = {};
+          itemFirstResponseTimes = {};
+          responseEvents = [];
 
           function updateProgress() {
             let answered = 0;
@@ -289,17 +291,44 @@
           document.querySelectorAll(`input[type="radio"][name^="${namePrefix}_"]`)
             .forEach(input => {
               input.addEventListener("change", function() {
-                itemResponseTimes[input.name] = performance.now() - trialStartTime;
-                updateProgress();
-              });
+
+              const now = performance.now();
+              const cumulativeRt = now - trialStartTime;
+
+              const previousEvent =
+               responseEvents.length > 0
+               ? responseEvents[responseEvents.length - 1]
+               : null;
+
+              const interResponseRt =
+               previousEvent === null
+               ? cumulativeRt
+               : cumulativeRt - previousEvent.cumulative_rt_ms;
+
+              if (!(input.name in itemFirstResponseTimes)) {
+               itemFirstResponseTimes[input.name] =
+               Math.round(cumulativeRt);
+              }
+
+             responseEvents.push({
+              item: input.name,
+              value: Number(input.value),
+              cumulative_rt_ms: Math.round(cumulativeRt),
+              inter_response_rt_ms: Math.round(interResponseRt)
             });
-          updateProgress();
-        },
-        on_finish: function(data) {
-          data.n_items_answered = Object.keys(data.response || {}).length;
-          data.item_response_times_ms = itemResponseTimes; 
-        }
-      };
+
+             updateProgress();
+           });
+
+    on_finish: function(data) {
+      data.n_items_answered =
+      Object.keys(data.response || {}).length;
+
+      data.item_first_response_times_ms =
+        itemFirstResponseTimes;
+
+      data.response_events =
+        responseEvents;
     }
 
     const introSurvey = {
