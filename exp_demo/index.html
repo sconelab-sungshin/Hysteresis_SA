@@ -237,80 +237,110 @@
         .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
     }
 
-    function makeLikertHtml(items, options, namePrefix) {
-      const headerCells = options.map(opt => `<th>${opt.label}</th>`).join("");
-      const rows = items.map((item, index) => {
-        const itemNumber = index + 1;
-        const qName = `${namePrefix}_${String(itemNumber).padStart(2, "0")}`;
-        const optionCells = options.map(opt => `
-          <td class="option-cell"><input type="radio" name="${qName}" value="${opt.value}" required></td>
-        `).join("");
-        return `<tr><td class="item-no">${itemNumber}</td><td class="item-text">${escapeHtml(item)}</td>${optionCells}</tr>`;
-      }).join("");
+   function makeLikertHtml(items, options, namePrefix, attentionCheck = null) {
+  const headerCells = options.map(opt => `<th>${opt.label}</th>`).join("");
 
-      return `
-        <div class="missing-warning" id="${namePrefix}_warning">모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.</div>
-        <div class="survey-progress" id="${namePrefix}_progress">응답: 0 / ${items.length}</div>
-        <table class="likert-table">
-          <thead><tr><th class="item-no">번호</th><th class="item-text">문항</th>${headerCells}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-    }
+  const rows = items.map((item, index) => {
+    const itemNumber = index + 1;
+    const qName = `${namePrefix}_${String(itemNumber).padStart(2, "0")}`;
 
-function makeLikertTrial({ scaleId, title, instruction, items, options, namePrefix }) {
+    const optionCells = options.map(opt => `
+      <td class="option-cell">
+        <input type="radio" name="${qName}" value="${opt.value}" required>
+      </td>
+    `).join("");
 
+    return `<tr>
+      <td class="item-no">${itemNumber}</td>
+      <td class="item-text">${escapeHtml(item)}</td>
+      ${optionCells}
+    </tr>`;
+  }).join("");
+
+  const attentionCheckRow = attentionCheck ? `
+    <tr>
+      <td class="item-no">확인</td>
+      <td class="item-text">${escapeHtml(attentionCheck.text)}</td>
+      ${options.map(opt => `
+        <td class="option-cell">
+          <input type="radio" name="${attentionCheck.name}" value="${opt.value}" required>
+        </td>
+      `).join("")}
+    </tr>
+  ` : "";
+
+  const totalItems = items.length + (attentionCheck ? 1 : 0);
+
+  return `
+    <div class="missing-warning" id="${namePrefix}_warning">
+      모든 문항에 응답해야 다음으로 넘어갈 수 있습니다.
+    </div>
+    <div class="survey-progress" id="${namePrefix}_progress">
+      응답: 0 / ${totalItems}
+    </div>
+    <table class="likert-table">
+      <thead>
+        <tr>
+          <th class="item-no">번호</th>
+          <th class="item-text">문항</th>
+          ${headerCells}
+        </tr>
+      </thead>
+      <tbody>${rows}${attentionCheckRow}</tbody>
+    </table>
+  `;
+}
+
+function makeLikertTrial({
+  scaleId, title, instruction, items, options, namePrefix,
+  attentionCheck = null
+}) {
   let itemFirstResponseTimes = {};
   let responseEvents = [];
+
+  const totalRequired = items.length + (attentionCheck ? 1 : 0);
 
   return {
     type: jsPsychSurveyHtmlForm,
     preamble: "",
-    html: `<div class="survey-card">
-             <h2>${title}</h2>
-             <div class="survey-instruction">${instruction}</div>
-             ${makeLikertHtml(items, options, namePrefix)}
-           </div>`,
-
+    html: `
+      <div class="survey-card">
+        <h2>${title}</h2>
+        <div class="survey-instruction">${instruction}</div>
+        ${makeLikertHtml(items, options, namePrefix, attentionCheck)}
+      </div>
+    `,
     button_label: "다음",
     autocomplete: false,
-    data: {
-      block: `Q_${scaleId}`,
-      task: "questionnaire",
-      scale_id: scaleId
-    },
+    data: { block: `Q_${scaleId}`, task: "questionnaire", scale_id: scaleId },
 
     on_load: function() {
-      const button =
-        document.querySelector("#jspsych-survey-html-form-next");
-      const warning =
-        document.querySelector(`#${namePrefix}_warning`);
-      const progress =
-        document.querySelector(`#${namePrefix}_progress`);
+      const button = document.querySelector("#jspsych-survey-html-form-next");
+      const warning = document.querySelector(`#${namePrefix}_warning`);
+      const progress = document.querySelector(`#${namePrefix}_progress`);
       const trialStartTime = performance.now();
 
       itemFirstResponseTimes = {};
       responseEvents = [];
 
-
       function updateProgress() {
         let answered = 0;
+
         for (let i = 1; i <= items.length; i++) {
-          const qName =
-            `${namePrefix}_${String(i).padStart(2, "0")}`;
-          if (
-            document.querySelector(
-              `input[name="${qName}"]:checked`
-            )
-          ) {
-            answered++;
-          }
+          const qName = `${namePrefix}_${String(i).padStart(2, "0")}`;
+          if (document.querySelector(`input[name="${qName}"]:checked`)) answered++;
         }
 
-        progress.textContent =
-          `응답: ${answered} / ${items.length}`;
+        if (
+          attentionCheck &&
+          document.querySelector(`input[name="${attentionCheck.name}"]:checked`)
+        ) {
+          answered++;
+        }
 
-        if (answered === items.length) {
+        progress.textContent = `응답: ${answered} / ${totalRequired}`;
+
+        if (answered === totalRequired) {
           warning.style.display = "none";
           button.disabled = false;
         } else {
@@ -319,66 +349,53 @@ function makeLikertTrial({ scaleId, title, instruction, items, options, namePref
         }
       }
 
-
-      document
-        .querySelectorAll(
-          `input[type="radio"][name^="${namePrefix}_"]`
-        )
+      document.querySelectorAll(`input[type="radio"][name^="${namePrefix}_"]`)
         .forEach(input => {
           input.addEventListener("change", function() {
-            const now = performance.now();
-            const cumulativeRt =
-              now - trialStartTime;
-            const previousEvent =
-              responseEvents.length > 0
-                ? responseEvents[responseEvents.length - 1]
-                : null;
-            const interResponseRt =
-              previousEvent === null
-                ? cumulativeRt
-                : cumulativeRt -
-                  previousEvent.cumulative_rt_ms;
+            const cumulativeRt = performance.now() - trialStartTime;
+
+            const previousEvent = responseEvents.length > 0
+              ? responseEvents[responseEvents.length - 1]
+              : null;
+
+            const interResponseRt = previousEvent === null
+              ? cumulativeRt
+              : cumulativeRt - previousEvent.cumulative_rt_ms;
 
             if (!(input.name in itemFirstResponseTimes)) {
-
-              itemFirstResponseTimes[input.name] =
-                Math.round(cumulativeRt);
+              itemFirstResponseTimes[input.name] = Math.round(cumulativeRt);
             }
-
 
             responseEvents.push({
               item: input.name,
               value: Number(input.value),
-              cumulative_rt_ms:
-                Math.round(cumulativeRt),
-              inter_response_rt_ms:
-                Math.round(interResponseRt)
+              cumulative_rt_ms: Math.round(cumulativeRt),
+              inter_response_rt_ms: Math.round(interResponseRt)
             });
 
-
             updateProgress();
-
           });
-
         });
 
-
       updateProgress();
-
     },
 
-
     on_finish: function(data) {
-      data.n_items_answered =
-        Object.keys(data.response || {}).length;
-      data.item_first_response_times_ms =
-        itemFirstResponseTimes;
-      data.response_events =
-        responseEvents;
+      data.n_items_answered = Object.keys(data.response || {}).length;
+      data.item_first_response_times_ms = itemFirstResponseTimes;
+      data.response_events = responseEvents;
+
+      if (attentionCheck) {
+        const checkResponse = data.response?.[attentionCheck.name] ?? null;
+
+        data.attention_check_id = attentionCheck.id;
+        data.attention_check_response = checkResponse;
+        data.attention_check_expected = attentionCheck.correctValue;
+        data.attention_check_pass =
+          String(checkResponse) === String(attentionCheck.correctValue);
+      }
     }
-
   };
-
 }
 
     const introSurvey = {
@@ -412,7 +429,13 @@ function makeLikertTrial({ scaleId, title, instruction, items, options, namePref
       instruction: "다음 각 문항을 잘 읽고 귀하가 평소에 일상적으로 흔히 느끼고 있는 정도를 나타낸 부분을 선택해 주십시오.", 
       items: staiItems, 
       options: staiOptions, 
-      namePrefix: "stai" 
+      namePrefix: "stai",
+      attentionCheck: {
+       id: "attention_check_1",
+       name: "stai_attention_check_1",
+       text: "이 문항에서는 '가끔 그렇다'를 선택해 주십시오.",
+       correctValue: 2
+      }
     });
     const kspsTrial = makeLikertTrial({ 
       scaleId: "K_SPS", 
@@ -427,7 +450,14 @@ function makeLikertTrial({ scaleId, title, instruction, items, options, namePref
       instruction: "다음 문항들은 사회적 상황에서 경험할 수 있는 생각과 감정에 대한 것입니다. 각각의 문항들을 주의 깊게 읽으시고, 해당되는 정도를 선택해 주십시오.", 
       items: ksiasItems, 
       options: socialAnxietyOptions, 
-      namePrefix: "ksias" });
+      namePrefix: "ksias",
+      attentionCheck: {
+        id: "attention_check_2",
+        name: "ksias_attention_check_2",
+        text: "이 문항에서는 '보통이다'를 선택해 주십시오.",
+        correctValue: 2 
+      }
+      });
     const cesdTrial = makeLikertTrial({      
       scaleId: "CES_D",
       title: "우울 척도(CES-D)",
@@ -789,6 +819,12 @@ const consentDeclinedEnd = {
   }
 
   // ---- Browser / device check ----
+const allowedBrowsers = [
+  "chrome",
+  "edge-chromium",
+  "edge"
+];
+
 const browserCheckTrial = {
   type: jsPsychBrowserCheck,
 
@@ -800,9 +836,13 @@ const browserCheckTrial = {
     'fullscreen'
   ],
 
-inclusion_function: (data) => {
-  return data.mobile === false;
-},
+  inclusion_function: (data) => {
+    return (
+      data.mobile === false &&
+      allowedBrowsers.includes(data.browser) &&
+      data.fullscreen === true
+    );
+  },
   
   exclusion_message: (data) => {
     return `
@@ -810,8 +850,9 @@ inclusion_function: (data) => {
         <h2>연구 참여가 어렵습니다.</h2>
 
         <p class="survey-instruction">
-          본 연구는 스마트폰 또는 태블릿에서는 진행할 수 없습니다.<br><br>
-          노트북 또는 데스크톱 컴퓨터를 이용하여 다시 접속해 주십시오.
+          본 연구는 노트북 또는 데스크톱 컴퓨터에서
+          Chrome 또는 Microsoft Edge 브라우저를 이용하여 참여해 주십시오.<br><br>
+          스마트폰, 태블릿 또는 지원되지 않는 브라우저에서는 연구에 참여할 수 없습니다.
         </p>
       </div>
     `;
@@ -835,6 +876,29 @@ inclusion_function: (data) => {
     button_label: '전체화면으로 시작하기',
     data: {block:'fullscreen'}
   };
+
+  const experimentEnvironmentNotice = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <div class="instruction-screen">
+      <div class="instruction-box">
+        <h2>연구 참여 안내</h2>
+
+        <p>본 연구는 약 <strong>60분</strong> 정도 소요됩니다.</p>
+        <p>연구가 진행되는 동안 지정된 휴식 시간을 제외하고는 현재 자리에서 실험에 집중해 주십시오.</p>
+
+        <p>실험 도중 다른 브라우저 탭이나 창, 다른 프로그램으로 전환하지 말아 주십시오.</p>
+        <br>
+        <p><strong>안내 내용을 확인하셨다면 아무 키나 눌러 주십시오.</strong></p>
+
+      </div>
+    </div>
+  `,
+
+  data: {
+    block: 'experiment_environment_notice'
+  }
+};
 
   // ---- 3. Preload ----
   const preloadImages = [];
@@ -1003,7 +1067,7 @@ function countResponsesInSequence(sequenceUid) {
   <p>자신이 지금 <strong>낯선 사람들 앞에서 발표를 하고 있는 상황</strong>이라고
     상상해 주십시오. </p>
 
-  <p>잠시후 진행할 과제에서 화면에 나타나는 인물들은 <strong>자신의 발표를 듣고 있는 청중 중 한 사람</strong>이라고 생각해 주십시오.</p>
+  <p>앞으로 진행할 과제에서 화면에 나타나는 인물들은 <strong>자신의 발표를 듣고 있는 청중 중 한 사람</strong>이라고 생각해 주십시오.</p>
   <p>화면에 나타나는 표정은 자신의 발표를 보고 있는 <strong>청중의 반응</strong>이라고 상상해 주십시오.</p>
   <br>
   <p><strong>상황을 충분히 상상하셨다면 아무 키나 눌러 주십시오.</strong></p>
@@ -1014,14 +1078,11 @@ function countResponsesInSequence(sequenceUid) {
     <h2>실험 과제 안내</h2>
     <p>이 실험에서는 총 두 개의 과제를 진행합니다.</p>
     <br>
-    <p>첫 번째 과제에서는 한 사람의 얼굴 표정이 연속적으로 변화합니다.</p>
+    <p>첫 번째 과제에서는 자신의 발표를 듣고 있는 청중 중 한 사람의 표정이 연속적으로 변화합니다.</p>
     <p>처음에는 감정이 뚜렷한 표정으로 시작해서, 중간에 무표정을 지나, 마지막에는 다른 감정의 표정으로 바뀝니다.</p>
     <p><strong style="color: rgb(43, 108, 176);">무표정이 시작됐다고 느끼는 순간</strong> 스페이스바를 한 번 누르세요.</p>
     <p>그 후, 다시 <strong style="color: rgb(43, 108, 176);">감정이 드러나기 시작했다고 느끼는 순간</strong> 스페이스바를 한 번 더 누르세요.</p>
     <p>버튼을 누른 시점에는 자극 아래에 파란 체크 표시가 나타납니다.</p>
-    <br>
-    <p>실험이 시작되면 지정된 휴식 시간을 제외하고는 현재 자리에서 과제를 진행해 주시고,
-      다른 브라우저 탭이나 프로그램으로 전환하지 말아 주십시오. </p>
     <br>
     <p>먼저 첫 번째 과제의 연습시행을 진행합니다.</p>
     <p>아무 키나 누르면 시작합니다.</p>
@@ -1038,7 +1099,7 @@ function countResponsesInSequence(sequenceUid) {
         return `
           <div class="instruction-screen"><div class="instruction-box">
             <h2>연습시행</h2>
-            <p>얼굴 표정이 연속적으로 변화합니다.</p>
+            <p>청중 중 한 사람의 표정이 연속적으로 변화합니다.</p>
             <p>각 시행에서 아래와 같이 스페이스바를 <strong>두 번</strong> 눌러주세요.</p>
             <br>
             <p>첫 번째 응답: 얼굴이 무표정이 시작됐다고 느끼는 순간</p>
@@ -1113,7 +1174,9 @@ function countResponsesInSequence(sequenceUid) {
   const randomIntro = makeTextScreen(`
   <h2>두 번째 과제 안내</h2>
   <p>이제 두 번째 과제를 시작합니다.</p>
-  <p>두 번째 과제에서는 얼굴 이미지가 한 장씩 짧게 제시됩니다.</p>
+  <p>지금부터 화면에 나타나는 인물 역시 자신의 발표를 듣고 있는 청중 중 한 사람이며, 
+  제시되는 표정은 발표를 듣고 있는 <strong>청중의 표정</strong>이라고 생각해 주십시오.</p>
+  <p>두 번째 과제에서는 청중의 얼굴 이미지가 한 장씩 짧게 제시됩니다.</p>
   <p>각 이미지를 보고 가장 가깝다고 느껴지는 표정을 키보드로 응답하세요.</p>
   <br>
   <p><strong>왼쪽 화살표(←)</strong>: 화남</p>
@@ -1128,7 +1191,7 @@ function countResponsesInSequence(sequenceUid) {
   <h2>두 번째 과제 본 시행</h2>
   <p>연습시행이 끝났습니다.</p>
   <p>이제 두 번째 과제의 본 시행을 시작합니다.</p>
-  <p>각 이미지를 보고 가장 가깝다고 느껴지는 표정을 키보드로 응답하세요.</p>
+  <p>제시된 청중의 표정이 화남, 무표정, 행복 중 어디에 가장 가깝다고 느껴지는지 키보드로 응답해 주세요.</p>
   <br>
   <p><strong>왼쪽 화살표(←)</strong>: 화남</p>
   <p><strong>위쪽 화살표(↑)</strong>: 무표정</p>
@@ -1662,7 +1725,7 @@ const randomPracticeIntro = {
       return `
         <div class="instruction-screen"><div class="instruction-box">
           <h2>연습시행</h2>
-          <p>얼굴 이미지가 한 장씩 제시됩니다. 화살표 키로 응답해주세요.</p>
+          <p>청중의 얼굴 이미지가 한 장씩 제시됩니다. 화살표 키로 응답해주세요.</p>
           <br>
           <p><strong>왼쪽 화살표(←)</strong>: 화남</p>
           <p><strong>위쪽 화살표(↑)</strong>: 무표정</p>
@@ -1861,11 +1924,12 @@ const randomPracticeLoop = {
 
 const afterConsentNode = {
   timeline: [
-    survey.introSurvey,
     survey.demographicsTrial,
     ineligibleNode,
+    survey.introSurvey,
     eligibleFullExperimentNode
   ],
+
   conditional_function: function() {
     const consentData = jsPsych.data.get()
       .filter({ block: "consent" })
@@ -1879,6 +1943,7 @@ const afterConsentNode = {
 const timeline = [
   browserCheckTrial,
   fullscreenTrial,
+  experimentEnvironmentNotice,
   studyDescriptionTrial,
   consentTrial,
   consentDeclinedNode,
