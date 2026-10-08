@@ -259,7 +259,7 @@
 
   const attentionCheckRow = attentionCheck ? `
     <tr>
-      <td class="item-no">확인</td>
+      <td class="item-no">${items.length + 1}</td>
       <td class="item-text">${escapeHtml(attentionCheck.text)}</td>
       ${options.map(opt => `
         <td class="option-cell">
